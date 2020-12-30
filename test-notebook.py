@@ -50,3 +50,13 @@ reconst_test_dist = model(x_test)
 ll = tf.reduce_mean(reconst_test_dist.log_prob(x_test))
 ll
 # %%
+n_samples = 20
+prior_samples = prior.sample(n_samples)
+
+posterior_dists_dependent = decoder(prior_samples)
+posterior_dists = tfd.Independent(decoder(prior_samples), reinterpreted_batch_ndims=1)
+print(posterior_dists_dependent)
+print(posterior_dists)
+ll = tf.reduce_mean(posterior_dists_dependent.log_prob(tf.reshape(x_test, (10000, 1, 28, 28))))
+ll
+# %%
