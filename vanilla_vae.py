@@ -23,11 +23,12 @@ class GatedDense(tfkl.Layer):
     Use a combintation of two Dense layers with one activated and one not.
     Then component-wise multiply the results of both.
     """
-    def __init__(self, size, name, activation=None):
+
+    def __init__(self, size, name, activation=None, **kwargs):
         super(GatedDense, self).__init__(name=name, **kwargs)
         self.linear_1 = tfkl.Dense(size, kernel_initializer="he_normal")
         self.linear_2 = tfkl.Dense(size)
-        self.activition = activation
+        self.activation = activation
 
     def call(self, inputs):
 
@@ -48,7 +49,7 @@ class Encoder(layers.Layer):
     a Normal distribution of the latent space Z (of shape latent_dim). It does so by
     calculating the mean and variance of the Gaussian (i.e. has a last deterministic layer
     of size 2*latent_dim).
-    
+
     params
     ----
 
@@ -67,17 +68,18 @@ class Encoder(layers.Layer):
     """
 
     def __init__(
-        self, 
-        prior : tfp.distributions.Distribution,
-        original_dim=(28, 28, 1),
+        self,
+        prior: tfp.distributions.Distribution,
+        original_dim=(28, 28),
         latent_dim=40,
         intermediate_dim=300,
         activation=None,
         name="encoder",
         **kwargs
-        ):
+    ):
         super(Encoder, self).__init__(name=name, **kwargs)
-        self.input = tfkl.InputLayer(shape = [28,28], name="input")
+        self.input_layer = tfkl.InputLayer(
+            input_shape=original_dim, name="input")
         self.flatten = tfkl.Flatten()
         self.dense_first = GatedDense(
             intermediate_dim, name="first_gated_encod", activation=activation)
@@ -85,17 +87,17 @@ class Encoder(layers.Layer):
             intermediate_dim, name="second_gated_encod", activation=activation)
         # Need this layer to match the parameters of the normal distribution
         self.pre_latent_layer = tfkl.Dense(
-            tfpl.IndependentNormal.param_size(latent_dim),
+            tfpl.IndependentNormal.params_size(latent_dim),
             activation=None,
             name="pre_latent_layer",
         )
         # Activity Regularizer adds the KL Divergence loss to the encoder
         # TODO: For hierarchical VAE probably has to be done differently
-        self.latent_layer = tfpl.IndependantNormal(
+        self.latent_layer = tfpl.IndependentNormal(
             latent_dim, activity_regularizer=tfpl.KLDivergenceRegularizer(prior, use_exact_kl=True))
 
     def call(self, inputs):
-        inputs = self.input(inputs)
+        inputs = self.input_layer(inputs)
         x = self.flatten(inputs)
         x = self.dense_first(x)
         x = self.dense_second(x)
@@ -105,7 +107,7 @@ class Encoder(layers.Layer):
 
 class Decoder(layers.Layer):
     """Maps latent vector Z to the original shape X (e.g an image)
-    
+
     Takes a sample from the latent space Z (of shape latent_dim) and maps it into
     a distribution over possible images X (of shape pixel_x, pixel_x, color_channel_depth)
     which correspond to the latent value. This output is either a Bernoulli for a binary
@@ -116,7 +118,7 @@ class Decoder(layers.Layer):
     per image pixel). If the output is normal then the last deterministic layer has
     to contain 2*tf.prod(original_dim) parameters (since a Normal has two parameters
     per pixel (mean and variance)).
-    
+
     params
     ----
 
@@ -136,14 +138,14 @@ class Decoder(layers.Layer):
 
     def __init__(
         self,
-        original_dim=(28, 28, 1),
+        original_dim=(28, 28),
         latent_dim=40,
         intermediate_dim=300,
         activation=None,
         name="decoder",
         input_type='binary',
         **kwargs
-        ):
+    ):
         super(Decoder, self).__init__(name=name, **kwargs)
         self.inputLayer = tfkl.InputLayer(
             input_shape=[latent_dim])
@@ -153,18 +155,20 @@ class Decoder(layers.Layer):
             intermediate_dim, name="first_gated_decod", activation=activation)
         if input_type == 'binary':
             self.pre_reconstruct_layer = tfkl.Dense(
-                tfpl.IndependentBernoulli.param_size(original_dim),
+                tfpl.IndependentBernoulli.params_size(original_dim),
                 activation=None,
                 name="pre_reconstruct_layer_binary"
             )
-            self.reconstruct_layer = tfpl.IndependentBernoulli(original_dim, tfd.Bernoulli.logits)
+            self.reconstruct_layer = tfpl.IndependentBernoulli(
+                original_dim, tfd.Bernoulli.logits)
         else:
             self.pre_reconstruct_layer = tfkl.Dense(
-                tfpl.IndependentNormal.param_size(original_dim),
+                tfpl.IndependentNormal.params_size(original_dim),
                 activation=None,
                 name="pre_reconstruct_layer_continous"
             )
-            self.reconstruct_layer = tfpl.IndependentNormal(original_dim) ##  do you know what we have to add here?
+            self.reconstruct_layer = tfpl.IndependentNormal(
+                original_dim)  # do you know what we have to add here?
 
     def call(self, inputs):
         inputs = self.inputLayer(inputs)
@@ -176,7 +180,7 @@ class Decoder(layers.Layer):
 
 class VariationalAutoEncoder(tfk.Model):
     """Combines the encoder and decoder into an end-to-end model for training.
-    
+
     params
     ----
 
@@ -193,7 +197,7 @@ class VariationalAutoEncoder(tfk.Model):
 
     def __init__(
         self,
-        original_dim=(28,28,1),
+        original_dim=(28, 28),
         intermediate_dim=300,
         latent_dim=40,
         prior="standard_gaussian",
@@ -206,7 +210,7 @@ class VariationalAutoEncoder(tfk.Model):
             self.prior = tfd.Independent(tfd.Normal(
                 loc=tf.zeros(latent_dim),
                 scale=1.0,
-            ))
+            ), reinterpreted_batch_ndims=1)
         self.encoder = Encoder(self.prior,
                                original_dim=original_dim,
                                latent_dim=latent_dim,
@@ -228,3 +232,12 @@ class VariationalAutoEncoder(tfk.Model):
 
         reconstructed = self.decoder(z)
         return reconstructed
+
+    def get_encoder(self):
+        return self.encoder
+
+    def get_decoder(self):
+        return self.decoder
+
+    def get_prior(self):
+        return self.prior
