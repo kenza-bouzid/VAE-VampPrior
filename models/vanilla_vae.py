@@ -206,7 +206,7 @@ class VariationalAutoEncoder(tfk.Model):
         # self.add_loss(kl_loss)
         # z_mean = z.mean()
         # z_log_var = np.log(z.variance())
-
+        print(z)
         reconstructed = self.decoder(z)
         return reconstructed
 

@@ -52,7 +52,7 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 with tf.device('/device:GPU:0'):
-    model.fit(x_train, x_train, epochs=10,
+    model.fit(x_train, x_train, epochs=1,
               batch_size=100, callbacks=[es_callback, cp_callback])
 # %%
 model.load_weights(checkpoint_path)

@@ -58,13 +58,13 @@ class Encoder(tfkl.Layer):
         self.activation = activation
 
         self.input_layer_x = tfkl.InputLayer(
-            input_shape=original_dim, name="input_x")
+            input_shape=self.original_dim, name="input_x")
         self.flatten = tfkl.Flatten()
 
         self.set_qz2_layers()
 
         self.input_layer_z2 = tfkl.InputLayer(
-            input_shape=[latent_dim2], name="input_z2")
+            input_shape=self.latent_dim2, name="input_z2")
 
         self.set_qz1_layers()
 
@@ -121,7 +121,7 @@ class Encoder(tfkl.Layer):
         z1_x_z2 = tfkl.concatenate([z1_x, z1_z2], axis=-1)
         z1_x_z2 = self.q_z1_joint(z1_x_z2)
         z1 = self.pre_latent_layer_z1(z1_x_z2)
-        return self.latent_layer_z2(z1)
+        return self.latent_layer_z1(z1)
 
     def update_pz1(self, mean_z1, stddev_z1):
         self.prior1 = tfd.Independent(tfd.Normal(
@@ -137,6 +137,8 @@ class Encoder(tfkl.Layer):
         z2 = self.forward_qz2_layers(x)
         z2 = self.input_layer_z2(z2)
         z1 = self.forward_qz1_layers(x, z2)
+        print(z1)
+        print(z2)
         return z1, z2
 
 
@@ -206,7 +208,7 @@ class Decoder(tfkl.Layer):
         self.pz1_l1 = GatedDense(
             self.intermediate_dim, name="first_gated_decod_pz1", activation=self.activation)
         self.pz1_l2 = GatedDense(
-            self.intermediate_dim, name="first_gated_decod_pz1", activation=self.activation)
+            self.intermediate_dim, name="second_gated_decod_pz1", activation=self.activation)
 
         self.pre_latent_layer_pz1 = tfkl.Dense(
             tfpl.IndependentNormal.params_size(self.latent_dim1),
