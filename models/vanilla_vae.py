@@ -119,8 +119,8 @@ class Decoder(tfkl.Layer):
         latent_dim=40,
         intermediate_dim=300,
         activation=None,
-        name="decoder",
         input_type='binary',
+        name="decoder",
         **kwargs
     ):
         super(Decoder, self).__init__(name=name, **kwargs)
@@ -178,6 +178,8 @@ class VariationalAutoEncoder(tfk.Model):
         intermediate_dim=300,
         latent_dim=40,
         prior="standard_gaussian",
+        input_type="binary",
+        activation=None,
         name="autoencoder",
         **kwargs
     ):
@@ -194,7 +196,9 @@ class VariationalAutoEncoder(tfk.Model):
                                intermediate_dim=intermediate_dim)
         self.decoder = Decoder(original_dim=original_dim,
                                latent_dim=latent_dim,
-                               intermediate_dim=intermediate_dim)
+                               intermediate_dim=intermediate_dim, 
+                               activation=activation,
+                               input_type=input_type)
 
     def call(self, inputs):
         z = self.encoder(inputs)
