@@ -151,6 +151,7 @@ class Decoder(tfkl.Layer):
         inputs = self.inputLayer(inputs)
         x = self.dense_first(inputs)
         x = self.dense_second(x)
+        print(x)
         x = self.pre_reconstruct_layer(x)
         return self.reconstruct_layer(x)
 

@@ -64,7 +64,7 @@ class Encoder(tfkl.Layer):
         self.set_qz2_layers()
 
         self.input_layer_z2 = tfkl.InputLayer(
-            input_shape=self.latent_dim2, name="input_z2")
+            input_shape=[self.latent_dim2], name="input_z2")
 
         self.set_qz1_layers()
 
@@ -118,7 +118,7 @@ class Encoder(tfkl.Layer):
     def forward_qz1_layers(self, x, z2):
         z1_x = self.q_z1_x(x)
         z1_z2 = self. q_z1_z2(z2)
-        z1_x_z2 = tfkl.concatenate([z1_x, z1_z2], axis=-1)
+        z1_x_z2 = tfkl.concatenate([z1_x, z1_z2], axis=1)
         z1_x_z2 = self.q_z1_joint(z1_x_z2)
         z1 = self.pre_latent_layer_z1(z1_x_z2)
         return self.latent_layer_z1(z1)
@@ -134,11 +134,10 @@ class Encoder(tfkl.Layer):
 
     def call(self, inputs):
         x = self.input_layer_x(inputs)
+        x = self.flatten(x)
         z2 = self.forward_qz2_layers(x)
         z2 = self.input_layer_z2(z2)
         z1 = self.forward_qz1_layers(x, z2)
-        print(z1)
-        print(z2)
         return z1, z2
 
 
@@ -217,7 +216,7 @@ class Decoder(tfkl.Layer):
         )
 
         self.p_z1 = tfpl.IndependentNormal(
-            self.intermediate_dim)
+            self.latent_dim1)
 
     def set_px_layers(self):
 
@@ -263,7 +262,7 @@ class Decoder(tfkl.Layer):
     def forward_px(self, z1, z2):
         x1 = self.px_z1(z1)
         x2 = self.px_z2(z2)
-        x1_x2 = tfkl.concatenate([x1, x2], axis=-1)
+        x1_x2 = tfkl.concatenate([x1, x2], axis=1)
         x = self.pre_reconstruct_layer(x1_x2)
         return self.reconstruct_layer(x)
 

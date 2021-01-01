@@ -5,7 +5,7 @@ The following is for resolving paths for windows users
 Feel free to comment them out :)
 """
 import sys
-sys.path.append('../')
+sys.path.append('..')
 
 import models.hvae as hvae
 import matplotlib.pyplot as plt
@@ -43,6 +43,9 @@ def neg_log_likelihood(x, rv_x):
 
 model.compile(optimizer=tf.optimizers.Adam(1.0e-3), loss=neg_log_likelihood)
 
+#%%
+# tfk.utils.plot_model(model, "my_model.png", show_shapes=True)
+
 # %%
 checkpoint_path = "../checkpoints/hvae/test.h5"
 es_callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=2)
@@ -50,17 +53,18 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 with tf.device('/device:GPU:0'):
-    model.fit(x_train, x_train, epochs=5,
+    model.fit(x_train, x_train, epochs=10,
               batch_size=100, callbacks=[es_callback, cp_callback])
 # %%
 model.load_weights(checkpoint_path)
 # %%
-prior = model.get_prior()
+prior1, prior2 = model.get_prior()
 encoder = model.get_encoder()
 decoder = model.get_decoder()
 # print(encoder.input)
 # %%
-generated_img = decoder(prior.sample(1)).sample()
+
+generated_img = decoder.generate_img(prior2.sample(1)).sample()
 
 plt.imshow(generated_img[0])
 # %%
@@ -70,11 +74,11 @@ reconst_test_dist = model(x_test)
 ll = tf.reduce_mean(reconst_test_dist.log_prob(x_test))
 ll
 # %%
-n_samples = 20
-prior_samples = prior.sample(n_samples)
+n_samples = 5
+prior_samples = prior2.sample(n_samples)
 
-posterior_dists_dependent = decoder(prior_samples)
-posterior_dists = tfd.Independent(decoder(prior_samples), reinterpreted_batch_ndims=1)
+posterior_dists_dependent = decoder.generate_img(prior_samples)
+posterior_dists = tfd.Independent(decoder.generate_img(prior_samples), reinterpreted_batch_ndims=1)
 print(posterior_dists_dependent)
 print(posterior_dists)
 ll = tf.reduce_mean(posterior_dists_dependent.log_prob(tf.reshape(x_test, (10000, 1, 28, 28))))

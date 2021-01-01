@@ -12,7 +12,7 @@ class GatedDense(tfkl.Layer):
     def __init__(self, size, name, activation=None, **kwargs):
         super(GatedDense, self).__init__(name=name, **kwargs)
         self.linear_1 = tfkl.Dense(size, kernel_initializer="he_normal")
-        self.linear_2 = tfkl.Dense(size)
+        self.linear_2 = tfkl.Dense(size, kernel_initializer="he_normal")
         self.activation = activation
 
     def call(self, inputs):
