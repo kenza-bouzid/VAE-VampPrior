@@ -182,13 +182,14 @@ class VAE_VampPrior(tfk.Model):
         original_dim=(28, 28, 1),
         intermediate_dim=300,
         latent_dim=40,
-        prior="standard_gaussian",
+        prior_type="vamp_prior",
         input_type="binary",
         activation=None,
         name="autoencoder",
         **kwargs
     ):
         super(VAE_VampPrior, self).__init__(name=name, **kwargs)
+        self.prior_type = prior_type
         self.original_dim = original_dim
         self.n_pseudo_inputs = n_pseudo_inputs
         self.pseudo_input_type = pseudo_input_type
@@ -234,56 +235,63 @@ class VAE_VampPrior(tfk.Model):
 
         # The employed prior is a mixture of posteriors, i.e. we use the encoder
         # n_pseudo_inputs times
-
-    def call(self, inputs):
-        z = self.encoder(inputs)
-
+    
+    def create_vamp_prior(self):
         # If the pre pseudo inputs are generated we have to create the new
-        # pseudo inputs 
+        # pseudo inputs
+        #
+        # For the "data" vampprior the pseudo inputs are fixed over all epochs
+        # and batches. In case of the "generate" vampprior an additional fully
+        # connected layer maps a scalar [TODO: Really just scalar?] to an image
+        # (e.g in case of mnist [] -> [28, 28, 1] )
         if self.pseudo_input_type == "generate":
             pseudo_inputs = self.pseudo_input_layer(self.pre_pseudo_inputs)
         elif self.pseudo_input_type == "data":
             pseudo_inputs = self.pseudo_inputs
 
-        # Create the Vamp_Prior based on the current encoder network
-        batch_size = inputs.shape[0]
+        # print(inputs.shape)
+        # print(pseudo_inputs.shape)
+        # print(pseudo_inputs_batched.shape)
 
-        # Create batch size copy of pseudo inputs
-        pseudo_inputs_batched = tf.expand_dims(pseudo_inputs, axis=0)
-        pseudo_inputs_batched = tf.repeat(pseudo_inputs_batched, batch_size, axis=0)
-
-        print(inputs.shape)
-        print(pseudo_inputs.shape)
-        print(pseudo_inputs_batched.shape)
-        pseudo_input_posteriors = self.encoder(pseudo_inputs)
-        print(pseudo_input_posteriors)
-        self.prior = tfd.MixtureSameFamily(
+        # Uses the current version of the encoder (i.e. the current state of the
+        # updated weights in the neural network) to find the encoded
+        # representation of the pseudo inputs 
+        pseudo_input_encoded_posteriors = self.encoder(pseudo_inputs)
+        # print(pseudo_input_posteriors)
+       
+        return prior = tfd.MixtureSameFamily(
             mixture_distribution=tfd.Categorical(
-                probs=1/self.n_pseudo_inputs * tf.ones(self.n_pseudo_inputs)
+                probs=1.0/self.n_pseudo_inputs * tf.ones(self.n_pseudo_inputs)
             ),
-            components_distribution=self.encoder(pseudo_inputs),
+            components_distribution=pseudo_input_encoded_posteriors,
             name="vamp_prior"
         )
-        # batch_prior = tfd.Independent(
-        #     batch_size*
-        # )
-        print("Hello")
-        print(self.prior)
-        print(z)
+
+
+    def call(self, inputs):
+        z = self.encoder(inputs)
+
+        prior = self.create_vamp_prior()
+
+        # print(prior)
+        # print(z)
 
 
         # Calculate the KL loss using a monte_carlo sample
-        z_sample = self.prior.sample(self.n_monte_carlo_samples)
-        print(z_sample.shape)
+        z_sample = prior.sample(self.n_monte_carlo_samples)
+        # print(z_sample.shape)
+
+        # Add additional dimension to enable broadcasting with the vamp prior,
+        # then reverse because the batch_dim is required to be the first axis
         z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
-        print(z_log_prob.shape)
+        # print(z_log_prob.shape)
         prior_log_prob = self.prior.log_prob(z_sample)
-        print(prior_log_prob.shape)
+        # print(prior_log_prob.shape)
         # Mean over monte-carlo samples and batch size
         kl_loss_total = prior_log_prob - z_log_prob
-        print(kl_loss_total.shape)
+        # print(kl_loss_total.shape)
         kl_loss = tf.reduce_mean(kl_loss_total)##, axis=1)
-        print(kl_loss.shape)
+        # print(kl_loss.shape)
         self.add_loss(kl_loss)
 
         reconstructed = self.decoder(z)
@@ -296,7 +304,10 @@ class VAE_VampPrior(tfk.Model):
         return self.decoder
 
     def get_prior(self):
-        return self.prior
+        if self.prior_type == "vamp_prior":
+            return self.create_vamp_prior()
+        else:
+            return self.prior
 
     def prepare(self):
         """Convenience function to compile the model
