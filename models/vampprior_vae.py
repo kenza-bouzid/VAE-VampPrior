@@ -259,7 +259,7 @@ class VAE_VampPrior(tfk.Model):
         pseudo_input_encoded_posteriors = self.encoder(pseudo_inputs)
         # print(pseudo_input_posteriors)
        
-        return prior = tfd.MixtureSameFamily(
+        return tfd.MixtureSameFamily(
             mixture_distribution=tfd.Categorical(
                 probs=1.0/self.n_pseudo_inputs * tf.ones(self.n_pseudo_inputs)
             ),
@@ -285,7 +285,7 @@ class VAE_VampPrior(tfk.Model):
         # then reverse because the batch_dim is required to be the first axis
         z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
         # print(z_log_prob.shape)
-        prior_log_prob = self.prior.log_prob(z_sample)
+        prior_log_prob = prior.log_prob(z_sample)
         # print(prior_log_prob.shape)
         # Mean over monte-carlo samples and batch size
         kl_loss_total = prior_log_prob - z_log_prob
