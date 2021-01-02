@@ -176,8 +176,8 @@ class VAE_VampPrior(tfk.Model):
         n_pseudo_inputs=500,
         pseudo_input_type="generate",
         pseudo_inputs=None,
-        pseudo_input_mean=None,
-        pseudo_input_std=None,
+        pseudo_input_mean=0.0,
+        pseudo_input_std=0.01,
         n_monte_carlo_samples=5,
         original_dim=(28, 28, 1),
         intermediate_dim=300,
@@ -196,27 +196,17 @@ class VAE_VampPrior(tfk.Model):
         self.n_monte_carlo_samples = n_monte_carlo_samples
 
         if pseudo_input_type == "generate":
-            if pseudo_input_mean is None:
-                raise("If pseudo_input_type is 'generate' a mean has to be provided")
-            if pseudo_input_std is None:
-                raise("If pseudo_input_type is 'generate' a std has to be provided")
-
-            self.pre_pseudo_input_generator = tfd.Independent(
-                tfd.Normal(
-                    loc=pseudo_input_mean,
-                    scale=pseudo_input_std,
-                )
-            )
-
-            self.pre_pseudo_inputs = self.pre_pseudo_input_generator.sample()
+            self.pre_pseudo_inputs = tf.eye(n_pseudo_inputs)
 
             self.pseudo_input_layer = tfkl.Dense(
-                original_dim,
-                activation=None,
+                np.prod(original_dim),
+                kernel_initializer=tfk.initializers.RandomNormal(mean = pseudo_input_mean, stddev = pseudo_input_std),
+                activation = "relu",
             )
         elif pseudo_input_type == "data":
             if pseudo_inputs is None:
-                raise("If pseudo_input_type is 'data' a data has to be provided")
+                print()
+                raise(ValueError("If pseudo_input_type is 'data' a data has to be provided"))
             self.pseudo_inputs = pseudo_inputs
         else:
             raise("VampPrior requires either initialization with data or paramters to genrater pseudo inputs")
