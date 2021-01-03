@@ -2,22 +2,22 @@ import tensorflow as tf
 from tensorflow.python.types.core import Value
 import tensorflow_probability as tfp
 import numpy as np
-
+from enum import Enum
 from utils.layers import GatedDense
 
 tfd = tfp.distributions
 tfpl = tfp.layers
 tfk = tf.keras
 tfkl = tf.keras.layers
-# class Sampling(layers.Layer):
-#     """Uses (z_mean, z_log_var) to sample z, the vector encoding a digit."""
 
-#     def call(self, inputs):
-#         z_mean, z_log_var = inputs
-#         batch = tf.shape(z_mean)[0]
-#         dim = tf.shape(z_mean)[1]
-#         epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
-#         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
+
+class Prior(Enum):
+    STANDARD_GAUSSIAN = 0
+    VAMPPRIOR = 1
+
+
+class InputType(Enum):
+    BINARY = 0
 
 
 class Encoder(tfkl.Layer):
@@ -55,6 +55,8 @@ class Encoder(tfkl.Layer):
         **kwargs
     ):
         super(Encoder, self).__init__(name=name, **kwargs)
+
+        # Layers definitions
         self.input_layer = tfkl.InputLayer(
             input_shape=original_dim, name="input")
         self.flatten = tfkl.Flatten()
@@ -62,6 +64,7 @@ class Encoder(tfkl.Layer):
             intermediate_dim, name="first_gated_encod", activation=activation)
         self.dense_second = GatedDense(
             intermediate_dim, name="second_gated_encod", activation=activation)
+
         # Need this layer to match the parameters of the normal distribution
         self.pre_latent_layer = tfkl.Dense(
             tfpl.IndependentNormal.params_size(latent_dim),
@@ -69,7 +72,6 @@ class Encoder(tfkl.Layer):
             name="pre_latent_layer",
         )
         # Activity Regularizer adds the KL Divergence loss to the encoder
-        # TODO: For hierarchical VAE probably has to be done differently
         self.latent_layer = tfpl.IndependentNormal(
             latent_dim,
             name="variational_encoder"
@@ -121,7 +123,7 @@ class Decoder(tfkl.Layer):
         latent_dim=40,
         intermediate_dim=300,
         activation=None,
-        input_type='binary',
+        input_type=InputType.BINARY,
         name="decoder",
         **kwargs
     ):
@@ -132,7 +134,7 @@ class Decoder(tfkl.Layer):
             intermediate_dim, name="first_gated_decod", activation=activation)
         self.dense_second = GatedDense(
             intermediate_dim, name="first_gated_decod", activation=activation)
-        if input_type == 'binary':
+        if input_type == InputType.BINARY:
             self.pre_reconstruct_layer = tfkl.Dense(
                 tfpl.IndependentBernoulli.params_size(original_dim),
                 activation=None,
@@ -179,13 +181,14 @@ class VariationalAutoEncoder(tfk.Model):
         original_dim=(28, 28),
         intermediate_dim=300,
         latent_dim=40,
-        prior_type="standard_gaussian",
-        input_type="binary",
+        prior_type=Prior.STANDARD_GAUSSIAN,
+        input_type=InputType.BINARY,
         activation=None,
         name="autoencoder",
+
         # vamp prior args
         n_pseudo_inputs=500,
-        pseudo_inputs_type="generate",
+        pseudo_inputs_generate=True,
         pseudo_inputs=None,
         pseudo_inputs_mean=0.0,
         pseudo_inputs_std=0.01,
@@ -196,17 +199,17 @@ class VariationalAutoEncoder(tfk.Model):
         self.prior_type = prior_type
         self.original_dim = original_dim
         self.n_pseudo_inputs = n_pseudo_inputs
-        self.pseudo_input_type = pseudo_inputs_type
+        self.pseudo_inputs_generate = pseudo_inputs_generate
         self.n_monte_carlo_samples = n_monte_carlo_samples
 
-
-        if prior_type == "standard_gaussian":
+        if prior_type == Prior.STANDARD_GAUSSIAN:
             self.prior = tfd.Independent(tfd.Normal(
                 loc=tf.zeros(latent_dim),
                 scale=1.0,
             ), reinterpreted_batch_ndims=1)
         else:
-            self.initialize_pseudo_inputs(n_pseudo_inputs, pseudo_inputs_type, pseudo_inputs, pseudo_inputs_mean, pseudo_inputs_std)
+            self.initialize_pseudo_inputs(
+                n_pseudo_inputs, pseudo_inputs_generate, pseudo_inputs, pseudo_inputs_mean, pseudo_inputs_std)
         self.encoder = Encoder(original_dim=original_dim,
                                latent_dim=latent_dim,
                                intermediate_dim=intermediate_dim)
@@ -216,83 +219,73 @@ class VariationalAutoEncoder(tfk.Model):
                                activation=activation,
                                input_type=input_type)
 
-    def initialize_pseudo_inputs(self, n_pseudo_inputs,pseudo_input_type, pseudo_inputs,pseudo_inputs_mean, pseudo_inputs_std):
-        if pseudo_input_type == "generate":
+    def initialize_pseudo_inputs(self, n_pseudo_inputs, pseudo_inputs_generate, pseudo_inputs, pseudo_inputs_mean, pseudo_inputs_std):
+        if pseudo_inputs_generate:
             self.pre_pseudo_inputs = tf.eye(n_pseudo_inputs)
 
             self.pseudo_input_layer = tfkl.Dense(
                 np.prod(self.original_dim),
-                kernel_initializer=tfk.initializers.RandomNormal(mean = pseudo_inputs_mean, stddev = pseudo_inputs_std),
-                activation = "relu",
-                name ="pseudo_input_layer"
+                kernel_initializer=tfk.initializers.RandomNormal(
+                    mean=pseudo_inputs_mean, stddev=pseudo_inputs_std),
+                activation="relu",
+                name="pseudo_input_layer"
             )
-        elif pseudo_input_type == "data":
-            if pseudo_inputs is None:
-                raise ValueError("If pseudo_input_type is 'data' a data has to be provided")
-            self.pseudo_inputs = pseudo_inputs
         else:
-            raise ValueError("VampPrior requires either initialization with data or paramters to genrater pseudo inputs")
-             
+            if pseudo_inputs is None:
+                raise ValueError(
+                    "If pseudo_inputs_generate is 'data' a data has to be provided")
+            self.pseudo_inputs = pseudo_inputs
+
     def recompute_prior(self):
         # If the pre pseudo inputs are generated we have to create the new
         # pseudo inputs
         #
         # For the "data" vampprior the pseudo inputs are fixed over all epochs
         # and batches. In case of the "generate" vampprior an additional fully
-        # connected layer maps a scalar [TODO: Really just scalar?] to an image
+        # connected layer maps a scalar to an image
         # (e.g in case of mnist [] -> [28, 28, 1] )
-        if self.pseudo_input_type == "generate":
-            pseudo_inputs = self.pseudo_input_layer(self.pre_pseudo_inputs)
-        elif self.pseudo_input_type == "data":
-            pseudo_inputs = self.pseudo_inputs
-
-        # print(inputs.shape)
-        # print(pseudo_inputs.shape)
-        # print(pseudo_inputs_batched.shape)
+        # recompute pseudo inputs if we choose the generate strategy
+        if self.pseudo_inputs_generate:
+            self.pseudo_inputs = self.pseudo_input_layer(
+                self.pre_pseudo_inputs)
 
         # Uses the current version of the encoder (i.e. the current state of the
         # updated weights in the neural network) to find the encoded
-        # representation of the pseudo inputs 
-        pseudo_input_encoded_posteriors = self.encoder(pseudo_inputs)
-        # print(pseudo_input_posteriors)
-       
-        return tfd.MixtureSameFamily(
+        # representation of the pseudo inputs
+        pseudo_input_encoded_posteriors = self.encoder(self.pseudo_inputs)
+
+        self.prior = tfd.MixtureSameFamily(
             mixture_distribution=tfd.Categorical(
                 probs=1.0/self.n_pseudo_inputs * tf.ones(self.n_pseudo_inputs)
             ),
             components_distribution=pseudo_input_encoded_posteriors,
             name="vamp_prior"
         )
-    def call(self, inputs):
-        z = self.encoder(inputs)
+        return self.prior
 
-        # TODO: KL divergence loss has to be added here in case we are using hierarchical VAE
-        # kl_loss = -0.5 * tf.reduce_mean(
-        #     z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1
-        # )
-        # self.add_loss(kl_loss)
-        # z_mean = z.mean()
-        # z_log_var = np.log(z.variance())
-        if self.prior_type != "standard_gaussian":
-            prior = self.recompute_prior()
-        else: 
-            prior = self.prior
+    def compute_kl_loss(self, z):
         # Calculate the KL loss using a monte_carlo sample
-        z_sample = prior.sample(self.n_monte_carlo_samples)
-        # print(z_sample.shape)
+        z_sample = self.prior.sample(self.n_monte_carlo_samples)
 
         # Add additional dimension to enable broadcasting with the vamp prior,
         # then reverse because the batch_dim is required to be the first axis
         z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
         # print(z_log_prob.shape)
-        prior_log_prob = prior.log_prob(z_sample)
+        prior_log_prob = self.prior.log_prob(z_sample)
         # print(prior_log_prob.shape)
         # Mean over monte-carlo samples and batch size
         kl_loss_total = prior_log_prob - z_log_prob
         # print(kl_loss_total.shape)
-        kl_loss = tf.reduce_mean(kl_loss_total)##, axis=1)
-        # print(kl_loss.shape)
-        print(kl_loss)
+        kl_loss = tf.reduce_mean(kl_loss_total) 
+        return kl_loss
+
+    def call(self, inputs):
+        z = self.encoder(inputs)
+
+        if self.prior_type != Prior.STANDARD_GAUSSIAN:
+            self.recompute_prior()
+        
+        kl_loss = self.compute_kl_loss(z)
         self.add_loss(kl_loss)
 
         reconstructed = self.decoder(z)
@@ -305,7 +298,11 @@ class VariationalAutoEncoder(tfk.Model):
         return self.decoder
 
     def get_prior(self):
+        if self.prior_type != Prior.STANDARD_GAUSSIAN:
+            self.recompute_prior()
         return self.prior
+
+
 
     def prepare(self):
         """Convenience function to compile the model
@@ -313,5 +310,5 @@ class VariationalAutoEncoder(tfk.Model):
         def neg_log_likelihood(x, rv_x):
             return - rv_x.log_prob(x)
 
-        self.compile(optimizer=tf.keras.optimizers.Adam(), loss=neg_log_likelihood)
-    
+        self.compile(optimizer=tf.keras.optimizers.Adam(),
+                     loss=neg_log_likelihood)
