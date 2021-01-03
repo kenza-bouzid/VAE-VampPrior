@@ -276,7 +276,7 @@ class VariationalAutoEncoder(tfk.Model):
         # Mean over monte-carlo samples and batch size
         kl_loss_total = prior_log_prob - z_log_prob
         # print(kl_loss_total.shape)
-        kl_loss = tf.reduce_mean(kl_loss_total) 
+        kl_loss = tf.reduce_mean(kl_loss_total)
         return kl_loss
 
     def call(self, inputs):
@@ -284,7 +284,7 @@ class VariationalAutoEncoder(tfk.Model):
 
         if self.prior_type != Prior.STANDARD_GAUSSIAN:
             self.recompute_prior()
-        
+
         kl_loss = self.compute_kl_loss(z)
         self.add_loss(kl_loss)
 
@@ -302,13 +302,11 @@ class VariationalAutoEncoder(tfk.Model):
             self.recompute_prior()
         return self.prior
 
-
+    def neg_log_likelihood(self, x, rv_x):
+        return - rv_x.log_prob(x)
 
     def prepare(self):
         """Convenience function to compile the model
         """
-        def neg_log_likelihood(x, rv_x):
-            return - rv_x.log_prob(x)
-
         self.compile(optimizer=tf.keras.optimizers.Adam(),
-                     loss=neg_log_likelihood)
+                     loss=self.neg_log_likelihood)
