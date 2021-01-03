@@ -202,10 +202,10 @@ class VAE_VampPrior(tfk.Model):
                 np.prod(original_dim),
                 kernel_initializer=tfk.initializers.RandomNormal(mean = pseudo_input_mean, stddev = pseudo_input_std),
                 activation = "relu",
+                name ="pseudo_input_layer"
             )
         elif pseudo_input_type == "data":
             if pseudo_inputs is None:
-                print()
                 raise(ValueError("If pseudo_input_type is 'data' a data has to be provided"))
             self.pseudo_inputs = pseudo_inputs
         else:
