@@ -76,9 +76,12 @@ class VAE(tfk.Model, ABC):
         # Uses the current version of the encoder (i.e. the current state of the
         # updated weights in the neural network) to find the encoded
         # representation of the pseudo inputs
-        pseudo_input_encoded_posteriors = self.encoder(
+        _,pseudo_input_encoded_posteriors = self.encoder(
             self.pseudo_inputs(None))
-
+        # If in hvae then dicard z1
+        # if isinstance(pseudo_input_encoded_posteriors, tuple):
+        # pseudo_input_encoded_posteriors = pseudo_input_encoded_posteriors[1]
+        
         self.prior = tfd.MixtureSameFamily(
             mixture_distribution=tfd.Categorical(
                 probs=1.0/self.pseudo_inputs.get_n() * tf.ones(self.pseudo_inputs.get_n())
@@ -88,19 +91,19 @@ class VAE(tfk.Model, ABC):
         )
         return self.prior
     
-    def compute_kl_loss(self, z, prior):
-        print("shapes args", z, prior)
+    def compute_kl_loss(self, z):
+        # print("shapes args", z, prior)
         # Calculate the KL loss using a monte_carlo sample
-        z_sample = prior.sample(self.n_monte_carlo_samples)
-        print("z sample", z_sample.shape)
+        z_sample = self.prior.sample(self.n_monte_carlo_samples)
+        # print("z sample", z_sample.shape)
         # Add additional dimension to enable broadcasting with the vamp prior,
         # then reverse because the batch_dim is required to be the first axis
         z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
         # print(z_log_prob.shape)
-        prior_log_prob = prior.log_prob(z_sample)
+        prior_log_prob = self.prior.log_prob(z_sample)
         # print(prior_log_prob.shape)
         # Mean over monte-carlo samples and batch size
-        print("shapes",prior_log_prob.shape, z_log_prob.shape)
+        # print("shapes",prior_log_prob.shape, z_log_prob.shape)
         kl_loss_total = prior_log_prob - z_log_prob
         # print(kl_loss_total.shape)
         kl_loss = tf.reduce_mean(kl_loss_total)

@@ -12,7 +12,7 @@ import tensorflow as tf
 import numpy as np
 import importlib
 import matplotlib.pyplot as plt
-
+import models.vae as vae
 
 tfk = tf.keras
 tfkl = tfk.layers
@@ -36,8 +36,8 @@ x_test = x_test.astype(np.float32) / 255
 x_train.shape
 # %%
 importlib.reload(hvae)
+#model = hvae.HVAE(prior_type = vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsData(x_train[:500]))
 model = hvae.HVAE()
-
 model.prepare()
 
 #%%
@@ -50,7 +50,7 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 with tf.device('/device:GPU:0'):
-    model.fit(x_train, x_train, epochs=2,
+    model.fit(x_train, x_train, epochs=1,
               batch_size=100, callbacks=[es_callback])
 # %%
 # checkpoint_path = "../checkpoints/hvae/test.h5"
@@ -61,10 +61,15 @@ encoder = model.get_encoder()
 decoder = model.get_decoder()
 # print(encoder.input)
 # %%
+#model.encoder(model.pseudo_inputs(None))[1]
+model.prior.sample()
+# %%
 
-generated_img = decoder.generate_img(prior2.sample(1)).mode()
+generated_img = decoder.generate_img(prior2.sample(1)).mean()
 
 plt.imshow(generated_img[0])
+# %%
+model.losses
 # %%
 # Test Marginal Log-Likelihood (????)
 reconst_test_dist = model(x_test)

@@ -39,16 +39,18 @@ class Encoder(tfkl.Layer):
 
     def __init__(
         self,
+        prior1,
         original_dim=(28, 28),
         intermediate_dim=300,
         latent_dim1=40,
         latent_dim2=40,
         activation=None,
-        name="encoder_qz2",
+        name="encoder",
         **kwargs
     ):
         super(Encoder, self).__init__(name=name, **kwargs)
 
+        self.prior1 = prior1
         self.original_dim = original_dim
         self.latent_dim1 = latent_dim1
         self.latent_dim2 = latent_dim2
@@ -102,7 +104,8 @@ class Encoder(tfkl.Layer):
             name="pre_latent_layer_z1",
         )
         # Activity Regularizer adds the KL Divergence loss to the encoder
-        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1)
+        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1, 
+                                                      activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior1, use_exact_kl=True))
 
     def forward_qz2_layers(self, x):
         z2 = self.qz2_first(x)
@@ -211,7 +214,7 @@ class Decoder(tfkl.Layer):
         self.px_z2 = GatedDense(
             self.intermediate_dim, name="z2_gated_decod_px", activation=self.activation)
 
-        if self.input_type == 'binary':
+        if self.input_type == InputType.BINARY:
             self.pre_reconstruct_layer = tfkl.Dense(
                 tfpl.IndependentBernoulli.params_size(self.original_dim),
                 activation=None,
@@ -292,7 +295,9 @@ class HVAE(VAE):
             scale=1.0,
         ), reinterpreted_batch_ndims=1)
         print(self.prior1)
-        self.encoder = Encoder(original_dim=self.original_dim,
+        
+        self.encoder = Encoder(prior1=self.prior1,
+                               original_dim=self.original_dim,
                                intermediate_dim=self.intermediate_dim,
                                latent_dim1=self.latent_dim1,
                                latent_dim2=self.latent_dim,
@@ -306,30 +311,28 @@ class HVAE(VAE):
                                input_type=self.input_type)
 
     def update_prior1(self, mean_z1, stddev_z1):
-        mean_z1 = tf.reduce_sum(mean_z1, axis = 0)
-        stddev_z1 = tf.reduce_sum(stddev_z1, axis = 0)
+        # mean_z1 = tf.reduce_sum(mean_z1, axis = 0)
+        # stddev_z1 = tf.reduce_sum(stddev_z1, axis = 0)
         self.prior1 = tfd.Independent(tfd.Normal(
             loc=mean_z1,
             scale=stddev_z1,
         ), reinterpreted_batch_ndims=1)
 
-    def compute_kl_loss(self, z1, z2):
-        return super().compute_kl_loss(z2, self.prior) + super().compute_kl_loss(z1, self.prior1)
-
     def call(self, inputs):
         z1, z2 = self.encoder(inputs)
 
         if self.prior_type == Prior.VAMPPRIOR:
+            print("before recompute")
             self.recompute_prior()
 
         reconstructed, mean_z1, stddev_z1 = self.decoder(z1, z2)
 
         self.update_prior1(mean_z1, stddev_z1)
+        self.encoder.prior1 = self.prior1
 
-        kl_loss = self.compute_kl_loss(z1, z2)
+        kl_loss = self.compute_kl_loss(z2)
         self.add_loss(kl_loss)
-
         return reconstructed
-
+    
     def get_priors(self):
         return self.prior1, self.prior
