@@ -50,11 +50,11 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 with tf.device('/device:GPU:0'):
-    model.fit(x_train, x_train, epochs=5,
+    model.fit(x_train, x_train, epochs=2,
               batch_size=100, callbacks=[es_callback])
 # %%
-checkpoint_path = "../checkpoints/hvae/test.h5"
-model.load_weights(checkpoint_path)
+# checkpoint_path = "../checkpoints/hvae/test.h5"
+# model.load_weights(checkpoint_path)
 # %%
 prior1, prior2 = model.get_priors()
 encoder = model.get_encoder()
@@ -62,7 +62,7 @@ decoder = model.get_decoder()
 # print(encoder.input)
 # %%
 
-generated_img = decoder.generate_img(prior2.sample(1)).mean()
+generated_img = decoder.generate_img(prior2.sample(1)).mode()
 
 plt.imshow(generated_img[0])
 # %%

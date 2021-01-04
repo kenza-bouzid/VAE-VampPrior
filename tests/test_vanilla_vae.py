@@ -33,7 +33,7 @@ x_test = x_test.astype(np.float32) / 255
 # %%
 importlib.reload(vae)
 model = vae.VanillaVAE(
-    prior_type=vae.Prior.VAMPPRIOR, pseudo_inputs=PInputsData(x_train[:500]))
+    prior_type=vae.Prior.STANDARD_GAUSSIAN)
 
 model.prepare()
 
@@ -66,7 +66,7 @@ plt.show()
 prior = model.get_prior()
 encoder = model.get_encoder()
 decoder = model.get_decoder()
-generated_img = decoder(prior.sample(1)).mean()
+generated_img = decoder(prior.sample(1)).sample()
 
 plt.imshow(generated_img[0])
 

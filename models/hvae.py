@@ -243,6 +243,7 @@ class Decoder(tfkl.Layer):
         z1 = self.p_z1(z1)
         mean = z1.mean()
         stddev = z1.stddev()
+        print("mean", mean.shape, "sdtdev", stddev.shape)
         return z1, mean, stddev
 
     def forward_px(self, z1, z2):
@@ -290,7 +291,7 @@ class HVAE(VAE):
             loc=tf.zeros(self.latent_dim1),
             scale=1.0,
         ), reinterpreted_batch_ndims=1)
-
+        print(self.prior1)
         self.encoder = Encoder(original_dim=self.original_dim,
                                intermediate_dim=self.intermediate_dim,
                                latent_dim1=self.latent_dim1,
@@ -305,6 +306,8 @@ class HVAE(VAE):
                                input_type=self.input_type)
 
     def update_prior1(self, mean_z1, stddev_z1):
+        mean_z1 = tf.reduce_sum(mean_z1, axis = 0)
+        stddev_z1 = tf.reduce_sum(stddev_z1, axis = 0)
         self.prior1 = tfd.Independent(tfd.Normal(
             loc=mean_z1,
             scale=stddev_z1,

@@ -89,9 +89,10 @@ class VAE(tfk.Model, ABC):
         return self.prior
     
     def compute_kl_loss(self, z, prior):
+        print("shapes args", z, prior)
         # Calculate the KL loss using a monte_carlo sample
         z_sample = prior.sample(self.n_monte_carlo_samples)
-
+        print("z sample", z_sample.shape)
         # Add additional dimension to enable broadcasting with the vamp prior,
         # then reverse because the batch_dim is required to be the first axis
         z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
@@ -99,6 +100,7 @@ class VAE(tfk.Model, ABC):
         prior_log_prob = prior.log_prob(z_sample)
         # print(prior_log_prob.shape)
         # Mean over monte-carlo samples and batch size
+        print("shapes",prior_log_prob.shape, z_log_prob.shape)
         kl_loss_total = prior_log_prob - z_log_prob
         # print(kl_loss_total.shape)
         kl_loss = tf.reduce_mean(kl_loss_total)
