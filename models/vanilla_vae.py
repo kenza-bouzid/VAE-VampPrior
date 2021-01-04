@@ -5,7 +5,7 @@ import numpy as np
 from enum import Enum
 from utils.layers import GatedDense
 from utils.pseudo_inputs import PseudoInputs
-
+from models.vae import VAE
 tfd = tfp.distributions
 tfpl = tfp.layers
 tfk = tf.keras
@@ -156,12 +156,11 @@ class Decoder(tfkl.Layer):
         inputs = self.inputLayer(inputs)
         x = self.dense_first(inputs)
         x = self.dense_second(x)
-        print(x)
         x = self.pre_reconstruct_layer(x)
         return self.reconstruct_layer(x)
 
 
-class VariationalAutoEncoder(tfk.Model):
+class VanillaVAE(VAE):
     """Combines the encoder and decoder into an end-to-end model for training.
 
     params
@@ -185,48 +184,34 @@ class VariationalAutoEncoder(tfk.Model):
         latent_dim=40,
         prior_type=Prior.STANDARD_GAUSSIAN,
         input_type=InputType.BINARY,
-        activation=None,
-        name="autoencoder",
         n_monte_carlo_samples=5,
         pseudo_inputs: PseudoInputs = None,
+        kl_weight=3,
+        activation=None,
+        name="vanilla_vae",
         **kwargs
     ):
-        super(VariationalAutoEncoder, self).__init__(name=name, **kwargs)
-        self.prior_type = prior_type
-        self.original_dim = original_dim
-        self.n_monte_carlo_samples = n_monte_carlo_samples
-        self.pseudo_inputs = pseudo_inputs
-        if prior_type == Prior.STANDARD_GAUSSIAN:
-            self.prior = tfd.Independent(tfd.Normal(
-                loc=tf.zeros(latent_dim),
-                scale=1.0,
-            ), reinterpreted_batch_ndims=1)
+        super(VanillaVAE, self).__init__(
+            original_dim,
+            intermediate_dim,
+            latent_dim, #? TODO : utile dans cette classe?
+            prior_type,
+            input_type,
+            n_monte_carlo_samples,
+            kl_weight,
+            pseudo_inputs,
+            activation,
+            name)
 
-        self.encoder = Encoder(original_dim=original_dim,
-                               latent_dim=latent_dim,
-                               intermediate_dim=intermediate_dim)
-        self.decoder = Decoder(original_dim=original_dim,
-                               latent_dim=latent_dim,
-                               intermediate_dim=intermediate_dim,
-                               activation=activation,
-                               input_type=input_type)
-
-    def recompute_prior(self):
-
-        # Uses the current version of the encoder (i.e. the current state of the
-        # updated weights in the neural network) to find the encoded
-        # representation of the pseudo inputs
-        pseudo_input_encoded_posteriors = self.encoder(
-            self.pseudo_inputs(None))
-
-        self.prior = tfd.MixtureSameFamily(
-            mixture_distribution=tfd.Categorical(
-                probs=1.0/self.pseudo_inputs.get_n() * tf.ones(self.pseudo_inputs.get_n())
-            ),
-            components_distribution=pseudo_input_encoded_posteriors,
-            name="vamp_prior"
-        )
-        return self.prior
+        self.encoder = Encoder(original_dim=self.original_dim,
+                               latent_dim=self.latent_dim,
+                               intermediate_dim=self.intermediate_dim,
+                               activation = self.activation)
+        self.decoder = Decoder(original_dim=self.original_dim,
+                               latent_dim=self.latent_dim,
+                               intermediate_dim=self.intermediate_dim,
+                               activation=self.activation,
+                               input_type=self.input_type)
 
     def compute_kl_loss(self, z):
         # Calculate the KL loss using a monte_carlo sample
@@ -242,7 +227,7 @@ class VariationalAutoEncoder(tfk.Model):
         kl_loss_total = prior_log_prob - z_log_prob
         # print(kl_loss_total.shape)
         kl_loss = tf.reduce_mean(kl_loss_total)
-        return kl_loss
+        return self.kl_weight * kl_loss
 
     def call(self, inputs):
         z = self.encoder(inputs)
@@ -255,23 +240,3 @@ class VariationalAutoEncoder(tfk.Model):
 
         reconstructed = self.decoder(z)
         return reconstructed
-
-    def get_encoder(self):
-        return self.encoder
-
-    def get_decoder(self):
-        return self.decoder
-
-    def get_prior(self):
-        if self.prior_type != Prior.STANDARD_GAUSSIAN:
-            self.recompute_prior()
-        return self.prior
-
-    def neg_log_likelihood(self, x, rv_x):
-        return - rv_x.log_prob(x)
-
-    def prepare(self):
-        """Convenience function to compile the model
-        """
-        self.compile(optimizer=tf.keras.optimizers.Adam(),
-                     loss=self.neg_log_likelihood)

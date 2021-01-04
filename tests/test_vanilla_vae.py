@@ -37,7 +37,7 @@ x_train = x_train.astype(np.float32) / 255
 x_test = x_test.astype(np.float32) / 255
 # %%
 importlib.reload(vae)
-model = vae.VariationalAutoEncoder(
+model = vae.VanillaVAE(
     prior_type=vae.Prior.VAMPPRIOR, pseudo_inputs=PInputsData(x_train[:500]))
 
 model.prepare()
