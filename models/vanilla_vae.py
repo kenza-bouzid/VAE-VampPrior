@@ -5,21 +5,11 @@ import numpy as np
 from enum import Enum
 from utils.layers import GatedDense
 from utils.pseudo_inputs import PseudoInputs
-from models.vae import VAE
+from models.vae import VAE, Prior, InputType
 tfd = tfp.distributions
 tfpl = tfp.layers
 tfk = tf.keras
 tfkl = tf.keras.layers
-
-
-class Prior(Enum):
-    STANDARD_GAUSSIAN = 0
-    VAMPPRIOR = 1
-
-
-class InputType(Enum):
-    BINARY = 0
-
 
 class Encoder(tfkl.Layer):
     """Maps input X to latent vector Z, represents q(Z|X)
@@ -123,8 +113,8 @@ class Decoder(tfkl.Layer):
         original_dim=(28, 28),
         latent_dim=40,
         intermediate_dim=300,
-        activation=None,
         input_type=InputType.BINARY,
+        activation=None,
         name="decoder",
         **kwargs
     ):
@@ -179,29 +169,11 @@ class VanillaVAE(VAE):
 
     def __init__(
         self,
-        original_dim=(28, 28),
-        intermediate_dim=300,
-        latent_dim=40,
-        prior_type=Prior.STANDARD_GAUSSIAN,
-        input_type=InputType.BINARY,
-        n_monte_carlo_samples=5,
-        pseudo_inputs: PseudoInputs = None,
-        kl_weight=3,
-        activation=None,
         name="vanilla_vae",
         **kwargs
     ):
         super(VanillaVAE, self).__init__(
-            original_dim,
-            intermediate_dim,
-            latent_dim, #? TODO : utile dans cette classe?
-            prior_type,
-            input_type,
-            n_monte_carlo_samples,
-            kl_weight,
-            pseudo_inputs,
-            activation,
-            name)
+            name = name, **kwargs)
 
         self.encoder = Encoder(original_dim=self.original_dim,
                                latent_dim=self.latent_dim,
@@ -212,22 +184,6 @@ class VanillaVAE(VAE):
                                intermediate_dim=self.intermediate_dim,
                                activation=self.activation,
                                input_type=self.input_type)
-
-    def compute_kl_loss(self, z):
-        # Calculate the KL loss using a monte_carlo sample
-        z_sample = self.prior.sample(self.n_monte_carlo_samples)
-
-        # Add additional dimension to enable broadcasting with the vamp prior,
-        # then reverse because the batch_dim is required to be the first axis
-        z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
-        # print(z_log_prob.shape)
-        prior_log_prob = self.prior.log_prob(z_sample)
-        # print(prior_log_prob.shape)
-        # Mean over monte-carlo samples and batch size
-        kl_loss_total = prior_log_prob - z_log_prob
-        # print(kl_loss_total.shape)
-        kl_loss = tf.reduce_mean(kl_loss_total)
-        return self.kl_weight * kl_loss
 
     def call(self, inputs):
         z = self.encoder(inputs)

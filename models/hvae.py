@@ -1,8 +1,10 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
-
+from enum import Enum
 from utils.layers import GatedDense
+from utils.pseudo_inputs import PseudoInputs
+from models.vae import VAE, Prior, InputType
 
 tfd = tfp.distributions
 tfpl = tfp.layers
@@ -37,20 +39,16 @@ class Encoder(tfkl.Layer):
 
     def __init__(
         self,
-        prior1: tfp.distributions.Distribution,
-        prior2: tfp.distributions.Distribution,
         original_dim=(28, 28),
+        intermediate_dim=300,
         latent_dim1=40,
         latent_dim2=40,
-        intermediate_dim=300,
         activation=None,
         name="encoder_qz2",
         **kwargs
     ):
         super(Encoder, self).__init__(name=name, **kwargs)
 
-        self.prior1 = prior1
-        self.prior2 = prior2
         self.original_dim = original_dim
         self.latent_dim1 = latent_dim1
         self.latent_dim2 = latent_dim2
@@ -84,8 +82,6 @@ class Encoder(tfkl.Layer):
         # Activity Regularizer adds the KL Divergence loss to the encoder
         self.latent_layer_z2 = tfpl.IndependentNormal(
             self.latent_dim2,
-            activity_regularizer=tfpl.KLDivergenceRegularizer(
-                self.prior2, use_exact_kl=True),
             name="latent_layer_z2")
 
     def set_qz1_layers(self):
@@ -106,8 +102,7 @@ class Encoder(tfkl.Layer):
             name="pre_latent_layer_z1",
         )
         # Activity Regularizer adds the KL Divergence loss to the encoder
-        self.latent_layer_z1 = tfpl.IndependentNormal(
-            self.latent_dim1, activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior1, use_exact_kl=True))
+        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1)
 
     def forward_qz2_layers(self, x):
         z2 = self.qz2_first(x)
@@ -122,15 +117,6 @@ class Encoder(tfkl.Layer):
         z1_x_z2 = self.q_z1_joint(z1_x_z2)
         z1 = self.pre_latent_layer_z1(z1_x_z2)
         return self.latent_layer_z1(z1)
-
-    def update_pz1(self, mean_z1, stddev_z1):
-        self.prior1 = tfd.Independent(tfd.Normal(
-            loc=mean_z1,
-            scale=stddev_z1,
-        ), reinterpreted_batch_ndims=1)
-
-    def get_prior1(self):
-        return self.prior1
 
     def call(self, inputs):
         x = self.input_layer_x(inputs)
@@ -178,8 +164,8 @@ class Decoder(tfkl.Layer):
         latent_dim1=40,
         latent_dim2=40,
         intermediate_dim=300,
+        input_type=InputType.BINARY,
         activation=None,
-        input_type='binary',
         name="decoder",
         **kwargs
     ):
@@ -274,7 +260,7 @@ class Decoder(tfkl.Layer):
         return x, mean, stddev
 
 
-class HVAE(tfk.Model):
+class HVAE(VAE):
     """Combines the encoder and decoder into an end-to-end model for training.
 
     params
@@ -293,62 +279,54 @@ class HVAE(tfk.Model):
 
     def __init__(
         self,
-        original_dim=(28, 28),
         latent_dim1=40,
-        latent_dim2=40,
-        intermediate_dim=300,
-        prior2_type="standard_gaussian",
-        input_type="binary",
-        activation=None,
-        name="autoencoder",
+        name="hvae",
         **kwargs
     ):
-        super(HVAE, self).__init__(name=name, **kwargs)
-
-        self.original_dim = original_dim
-        self.latent_dim1 = latent_dim1
-        self.latent_dim2 = latent_dim2
-        self.intermediate_dim = intermediate_dim
-        self.input_type = input_type
-        self.activation = activation
-
-        if prior2_type == "standard_gaussian":
-            self.prior2 = tfd.Independent(tfd.Normal(
-                loc=tf.zeros(latent_dim2),
-                scale=1.0,
-            ), reinterpreted_batch_ndims=1)
+        super(HVAE, self).__init__(
+            name = name, **kwargs)
 
         self.prior1 = tfd.Independent(tfd.Normal(
-            loc=tf.zeros(latent_dim1),
+            loc=tf.zeros(self.latent_dim1),
             scale=1.0,
         ), reinterpreted_batch_ndims=1)
 
-        self.encoder = Encoder(self.prior1,
-                               self.prior2,
-                               self.original_dim,
-                               self.latent_dim1,
-                               self.latent_dim2,
-                               self.intermediate_dim)
+        self.encoder = Encoder(original_dim=self.original_dim,
+                               intermediate_dim=self.intermediate_dim,
+                               latent_dim1=self.latent_dim1,
+                               latent_dim2=self.latent_dim,
+                               activation=self.activation)
 
-        self.decoder = Decoder(self.original_dim,
-                               self.latent_dim1,
-                               self.latent_dim2,
-                               self.intermediate_dim,
-                               self.activation,
-                               self.input_type)
+        self.decoder = Decoder(original_dim=self.original_dim,
+                               intermediate_dim=self.intermediate_dim,
+                               latent_dim1=self.latent_dim1,
+                               latent_dim2=self.latent_dim,
+                               activation=self.activation,
+                               input_type=self.input_type)
+
+    def update_prior1(self, mean_z1, stddev_z1):
+        self.prior1 = tfd.Independent(tfd.Normal(
+            loc=mean_z1,
+            scale=stddev_z1,
+        ), reinterpreted_batch_ndims=1)
+
+    def compute_kl_loss(self, z1, z2):
+        return super().compute_kl_loss(z1) + super().compute_kl_loss(z2)
 
     def call(self, inputs):
         z1, z2 = self.encoder(inputs)
+
+        if self.prior_type == Prior.VAMPPRIOR:
+            self.recompute_prior()
+
         reconstructed, mean_z1, stddev_z1 = self.decoder(z1, z2)
-        self.encoder.update_pz1(mean_z1, stddev_z1)
-        self.prior1 = self.encoder.get_prior1()
+
+        self.update_prior1(mean_z1, stddev_z1)
+
+        kl_loss = self.compute_kl_loss(z1, z2)
+        self.add_loss(kl_loss)
+
         return reconstructed
 
-    def get_encoder(self):
-        return self.encoder
-
-    def get_decoder(self):
-        return self.decoder
-
-    def get_prior(self):
-        return self.prior1, self.prior2
+    def get_priors(self):
+        return self.prior1, self.prior

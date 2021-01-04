@@ -37,12 +37,11 @@ class VAE(tfk.Model, ABC):
     prior: 
 
     """
-
     def __init__(
         self,
         original_dim=(28, 28),
         intermediate_dim=300,
-        latent_dim=40, #? TODO : utile dans cette classe?
+        latent_dim=40, 
         prior_type=Prior.STANDARD_GAUSSIAN,
         input_type=InputType.BINARY,
         n_monte_carlo_samples=5,
@@ -53,7 +52,7 @@ class VAE(tfk.Model, ABC):
         **kwargs
     ):
         super(VAE, self).__init__(name=name, **kwargs)
-
+        print(prior_type)
         self.original_dim = original_dim
         self.intermediate_dim = intermediate_dim
         self.latent_dim = latent_dim
@@ -66,7 +65,7 @@ class VAE(tfk.Model, ABC):
 
         if prior_type == Prior.STANDARD_GAUSSIAN:
             self.prior = tfd.Independent(tfd.Normal(
-                loc=tf.zeros(latent_dim),
+                loc=tf.zeros(self.latent_dim),
                 scale=1.0,
             ), reinterpreted_batch_ndims=1)
 
@@ -89,11 +88,23 @@ class VAE(tfk.Model, ABC):
             name="vamp_prior"
         )
         return self.prior
-
-    @abstractmethod
+    
     def compute_kl_loss(self, z):
-        raise AssertionError("The parent kl loss should not be called directly")
-        
+        # Calculate the KL loss using a monte_carlo sample
+        z_sample = self.prior.sample(self.n_monte_carlo_samples)
+
+        # Add additional dimension to enable broadcasting with the vamp prior,
+        # then reverse because the batch_dim is required to be the first axis
+        z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
+        # print(z_log_prob.shape)
+        prior_log_prob = self.prior.log_prob(z_sample)
+        # print(prior_log_prob.shape)
+        # Mean over monte-carlo samples and batch size
+        kl_loss_total = prior_log_prob - z_log_prob
+        # print(kl_loss_total.shape)
+        kl_loss = tf.reduce_mean(kl_loss_total)
+        return self.kl_weight * kl_loss
+    
     @abstractmethod
     def call(self, inputs):
         z = self.encoder(inputs)
