@@ -4,16 +4,18 @@ The following is for resolving paths for windows users
 (pretty sure linux handles it better)
 Feel free to comment them out :)
 """
-import utils.evaluation as evaluation
-import models.vanilla_vae as vae
-import datetime
-import tensorflow_probability as tfp
-import tensorflow as tf
-import numpy as np
-import importlib
-import matplotlib.pyplot as plt
 import sys
 sys.path.append('../')
+import matplotlib.pyplot as plt
+import importlib
+import numpy as np
+import tensorflow as tf
+import tensorflow_probability as tfp
+import datetime
+import models.vanilla_vae as vae
+import utils.evaluation as evaluation
+from utils.pseudo_inputs import PInputsData, PInputsGenerated, PseudoInputs
+
 
 tfk = tf.keras
 tfkl = tfk.layers
@@ -24,7 +26,7 @@ tfd = tfp.distributions
 # Checking gpu setup
 device_name = tf.test.gpu_device_name()
 if device_name != '/device:GPU:0':
-    raise SystemError('GPU device not found')
+    print('GPU device not found')
 print('Found GPU at: {}'.format(device_name))
 
 # %%
@@ -36,7 +38,7 @@ x_test = x_test.astype(np.float32) / 255
 # %%
 importlib.reload(vae)
 model = vae.VariationalAutoEncoder(
-    prior_type=vae.Prior.VAMPPRIOR, pseudo_inputs_generate=True)
+    prior_type=vae.Prior.VAMPPRIOR, pseudo_inputs=PInputsData(x_train[:500]))
 
 model.prepare()
 
@@ -75,7 +77,7 @@ plt.imshow(generated_img[0])
 
 # %%
 # Only of interest if using vampprior
-im_pseudo = np.reshape(model.pseudo_inputs, (500, 28, 28))
+im_pseudo = np.reshape(model.pseudo_inputs(None), (500, 28, 28))
 plt.imshow(im_pseudo[np.random.randint(0, 500)])
 # %%
 # Test Marginal Log-Likelihood (????)
