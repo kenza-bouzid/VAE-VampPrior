@@ -285,7 +285,7 @@ class HVAE(VAE):
     ):
         super(HVAE, self).__init__(
             name = name, **kwargs)
-
+        self.latent_dim1 = latent_dim1
         self.prior1 = tfd.Independent(tfd.Normal(
             loc=tf.zeros(self.latent_dim1),
             scale=1.0,
@@ -311,7 +311,7 @@ class HVAE(VAE):
         ), reinterpreted_batch_ndims=1)
 
     def compute_kl_loss(self, z1, z2):
-        return super().compute_kl_loss(z1) + super().compute_kl_loss(z2)
+        return super().compute_kl_loss(z2, self.prior) + super().compute_kl_loss(z1, self.prior1)
 
     def call(self, inputs):
         z1, z2 = self.encoder(inputs)

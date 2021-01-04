@@ -1,5 +1,4 @@
 import tensorflow as tf
-from tensorflow.python.types.core import Value
 import tensorflow_probability as tfp
 import numpy as np
 from enum import Enum
@@ -191,7 +190,7 @@ class VanillaVAE(VAE):
         if self.prior_type == Prior.VAMPPRIOR:
             self.recompute_prior()
 
-        kl_loss = self.compute_kl_loss(z)
+        kl_loss = self.compute_kl_loss(z, self.prior)
         self.add_loss(kl_loss)
 
         reconstructed = self.decoder(z)

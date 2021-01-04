@@ -1,5 +1,4 @@
 import tensorflow as tf
-from tensorflow.python.types.core import Value
 import tensorflow_probability as tfp
 import numpy as np
 from enum import Enum
@@ -89,15 +88,15 @@ class VAE(tfk.Model, ABC):
         )
         return self.prior
     
-    def compute_kl_loss(self, z):
+    def compute_kl_loss(self, z, prior):
         # Calculate the KL loss using a monte_carlo sample
-        z_sample = self.prior.sample(self.n_monte_carlo_samples)
+        z_sample = prior.sample(self.n_monte_carlo_samples)
 
         # Add additional dimension to enable broadcasting with the vamp prior,
         # then reverse because the batch_dim is required to be the first axis
         z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
         # print(z_log_prob.shape)
-        prior_log_prob = self.prior.log_prob(z_sample)
+        prior_log_prob = prior.log_prob(z_sample)
         # print(prior_log_prob.shape)
         # Mean over monte-carlo samples and batch size
         kl_loss_total = prior_log_prob - z_log_prob
@@ -107,16 +106,7 @@ class VAE(tfk.Model, ABC):
     
     @abstractmethod
     def call(self, inputs):
-        z = self.encoder(inputs)
-
-        if self.prior_type == Prior.VAMPPRIOR:
-            self.recompute_prior()
-
-        kl_loss = self.compute_kl_loss(z)
-        self.add_loss(kl_loss)
-
-        reconstructed = self.decoder(z)
-        return reconstructed
+        pass
 
     def get_encoder(self):
         return self.encoder

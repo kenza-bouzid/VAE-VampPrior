@@ -1,18 +1,18 @@
 # %% Hello World
-"""
-The following is for resolving paths for windows users 
-(pretty sure linux handles it better)
-Feel free to comment them out :)
-"""
-import sys
-sys.path.append('..')
 
+import sys
+sys.path.append('../')
+
+from utils.pseudo_inputs import PInputsData, PInputsGenerated, PseudoInputs
+import utils.evaluation as evaluation
 import models.hvae as hvae
-import matplotlib.pyplot as plt
-import importlib
-import numpy as np
-import tensorflow as tf
+import datetime
 import tensorflow_probability as tfp
+import tensorflow as tf
+import numpy as np
+import importlib
+import matplotlib.pyplot as plt
+
 
 tfk = tf.keras
 tfkl = tfk.layers
@@ -23,7 +23,7 @@ tfd = tfp.distributions
 ## Checking gpu setup
 device_name = tf.test.gpu_device_name()
 if device_name != '/device:GPU:0':
-  raise SystemError('GPU device not found')
+  print('GPU device not found')
 print('Found GPU at: {}'.format(device_name))
 
 # %%
@@ -38,10 +38,7 @@ x_train.shape
 importlib.reload(hvae)
 model = hvae.HVAE()
 
-def neg_log_likelihood(x, rv_x):
-    return -rv_x.log_prob(x)
-
-model.compile(optimizer=tf.optimizers.Adam(1.0e-3), loss=neg_log_likelihood)
+model.prepare()
 
 #%%
 # tfk.utils.plot_model(model, "my_model.png", show_shapes=True)
@@ -53,18 +50,19 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 with tf.device('/device:GPU:0'):
-    model.fit(x_train, x_train, epochs=10,
-              batch_size=100, callbacks=[es_callback, cp_callback])
+    model.fit(x_train, x_train, epochs=5,
+              batch_size=100, callbacks=[es_callback])
 # %%
+checkpoint_path = "../checkpoints/hvae/test.h5"
 model.load_weights(checkpoint_path)
 # %%
-prior1, prior2 = model.get_prior()
+prior1, prior2 = model.get_priors()
 encoder = model.get_encoder()
 decoder = model.get_decoder()
 # print(encoder.input)
 # %%
 
-generated_img = decoder.generate_img(prior2.sample(1)).sample()
+generated_img = decoder.generate_img(prior2.sample(1)).mean()
 
 plt.imshow(generated_img[0])
 # %%

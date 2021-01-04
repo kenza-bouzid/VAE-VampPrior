@@ -1,9 +1,4 @@
 # %%
-"""
-The following is for resolving paths for windows users 
-(pretty sure linux handles it better)
-Feel free to comment them out :)
-"""
 import sys
 sys.path.append('../')
 import matplotlib.pyplot as plt
