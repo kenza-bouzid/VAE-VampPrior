@@ -104,7 +104,7 @@ class Encoder(tfkl.Layer):
             name="pre_latent_layer_z1",
         )
         # Activity Regularizer adds the KL Divergence loss to the encoder
-        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1, 
+        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1,
                                                       activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior1, use_exact_kl=True))
 
     def forward_qz2_layers(self, x):
@@ -288,14 +288,14 @@ class HVAE(VAE):
         **kwargs
     ):
         super(HVAE, self).__init__(
-            name = name, **kwargs)
+            name=name, **kwargs)
         self.latent_dim1 = latent_dim1
         self.prior1 = tfd.Independent(tfd.Normal(
             loc=tf.zeros(self.latent_dim1),
             scale=1.0,
         ), reinterpreted_batch_ndims=1)
         print(self.prior1)
-        
+
         self.encoder = Encoder(prior1=self.prior1,
                                original_dim=self.original_dim,
                                intermediate_dim=self.intermediate_dim,
@@ -333,6 +333,8 @@ class HVAE(VAE):
         kl_loss = self.compute_kl_loss(z2)
         self.add_loss(kl_loss)
         return reconstructed
-    
+
     def get_priors(self):
+        if self.prior_type != Prior.STANDARD_GAUSSIAN:
+            self.prior = self.recompute_prior()
         return self.prior1, self.prior

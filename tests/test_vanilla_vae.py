@@ -33,7 +33,7 @@ x_test = x_test.astype(np.float32) / 255
 # %%
 importlib.reload(vae)
 model = vae.VanillaVAE(
-    prior_type=vae.Prior.STANDARD_GAUSSIAN)
+    prior_type=vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsGenerated())
 
 model.prepare()
 

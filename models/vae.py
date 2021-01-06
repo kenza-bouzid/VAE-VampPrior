@@ -20,6 +20,7 @@ class Prior(Enum):
 class InputType(Enum):
     BINARY = 0
 
+
 class VAE(tfk.Model, ABC):
     """Combines the encoder and decoder into an end-to-end model for training.
 
@@ -36,11 +37,12 @@ class VAE(tfk.Model, ABC):
     prior: 
 
     """
+
     def __init__(
         self,
         original_dim=(28, 28),
         intermediate_dim=300,
-        latent_dim=40, 
+        latent_dim=40,
         prior_type=Prior.STANDARD_GAUSSIAN,
         input_type=InputType.BINARY,
         n_monte_carlo_samples=5,
@@ -76,12 +78,12 @@ class VAE(tfk.Model, ABC):
         # Uses the current version of the encoder (i.e. the current state of the
         # updated weights in the neural network) to find the encoded
         # representation of the pseudo inputs
-        _,pseudo_input_encoded_posteriors = self.encoder(
+        pseudo_input_encoded_posteriors = self.encoder(
             self.pseudo_inputs(None))
         # If in hvae then dicard z1
-        # if isinstance(pseudo_input_encoded_posteriors, tuple):
-        # pseudo_input_encoded_posteriors = pseudo_input_encoded_posteriors[1]
-        
+        if isinstance(pseudo_input_encoded_posteriors, tuple):
+            pseudo_input_encoded_posteriors = pseudo_input_encoded_posteriors[1]
+
         self.prior = tfd.MixtureSameFamily(
             mixture_distribution=tfd.Categorical(
                 probs=1.0/self.pseudo_inputs.get_n() * tf.ones(self.pseudo_inputs.get_n())
@@ -90,7 +92,7 @@ class VAE(tfk.Model, ABC):
             name="vamp_prior"
         )
         return self.prior
-    
+
     def compute_kl_loss(self, z):
         # print("shapes args", z, prior)
         # Calculate the KL loss using a monte_carlo sample
@@ -108,7 +110,7 @@ class VAE(tfk.Model, ABC):
         # print(kl_loss_total.shape)
         kl_loss = tf.reduce_mean(kl_loss_total)
         return self.kl_weight * kl_loss
-    
+
     @abstractmethod
     def call(self, inputs):
         pass

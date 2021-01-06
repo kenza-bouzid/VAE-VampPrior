@@ -36,8 +36,7 @@ x_test = x_test.astype(np.float32) / 255
 x_train.shape
 # %%
 importlib.reload(hvae)
-#model = hvae.HVAE(prior_type = vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsData(x_train[:500]))
-model = hvae.HVAE()
+model = hvae.HVAE(prior_type = vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsData(x_train[:500]))
 model.prepare()
 
 #%%
@@ -62,7 +61,7 @@ decoder = model.get_decoder()
 # print(encoder.input)
 # %%
 #model.encoder(model.pseudo_inputs(None))[1]
-model.prior.sample()
+prior2.sample()
 # %%
 
 generated_img = decoder.generate_img(prior2.sample(1)).mean()

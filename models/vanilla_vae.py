@@ -10,6 +10,7 @@ tfpl = tfp.layers
 tfk = tf.keras
 tfkl = tf.keras.layers
 
+
 class Encoder(tfkl.Layer):
     """Maps input X to latent vector Z, represents q(Z|X)
 
@@ -172,12 +173,12 @@ class VanillaVAE(VAE):
         **kwargs
     ):
         super(VanillaVAE, self).__init__(
-            name = name, **kwargs)
+            name=name, **kwargs)
 
         self.encoder = Encoder(original_dim=self.original_dim,
                                latent_dim=self.latent_dim,
                                intermediate_dim=self.intermediate_dim,
-                               activation = self.activation)
+                               activation=self.activation)
         self.decoder = Decoder(original_dim=self.original_dim,
                                latent_dim=self.latent_dim,
                                intermediate_dim=self.intermediate_dim,
@@ -190,7 +191,7 @@ class VanillaVAE(VAE):
         if self.prior_type == Prior.VAMPPRIOR:
             self.recompute_prior()
 
-        kl_loss = self.compute_kl_loss(z, self.prior)
+        kl_loss = self.compute_kl_loss(z)
         self.add_loss(kl_loss)
 
         reconstructed = self.decoder(z)
