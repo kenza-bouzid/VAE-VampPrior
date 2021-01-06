@@ -196,3 +196,16 @@ class VanillaVAE(VAE):
 
         reconstructed = self.decoder(z)
         return reconstructed
+
+    @tf.function
+    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000):
+        # n_repetions = n_samples / batch_shape
+        # For one sample the KL is identical
+        enc_dist = self.encoder(one_x)
+        kl = - tfd.kl_divergence(enc_dist, self.prior)
+        # n_samples different reconstruction errors
+        reconst_img_dist_n_samples_batched = self.decoder(
+            enc_dist.sample(n_samples))
+        reconst_error = reconst_img_dist_n_samples_batched.log_prob(one_x)
+        full_error = reconst_error + self.kl_weight*kl
+        return tf.reduce_logsumexp(full_error) - tf.math.log(float(n_samples))

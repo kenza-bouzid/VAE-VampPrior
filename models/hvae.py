@@ -335,6 +335,19 @@ class HVAE(VAE):
         return reconstructed
 
     def get_priors(self):
-        if self.prior_type != Prior.STANDARD_GAUSSIAN:
+        if self.prior_type == Prior.VAMPPRIOR:
             self.prior = self.recompute_prior()
         return self.prior1, self.prior
+
+    @tf.function
+    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000):
+        # n_repetions = n_samples / batch_shape
+        # For one sample the KL is identical
+        z1, z2 = self.encoder(one_x)
+        kl = tfd.kl_divergence(z2, self.prior) + tfd.kl_divergence(z1, self.prior1)
+        # n_samples different reconstruction errors
+        reconst_img_dist_n_samples_batched = self.decoder.generate_img(z2.sample(n_samples))
+        reconst_error = reconst_img_dist_n_samples_batched.log_prob(one_x)
+        full_error = reconst_error - self.kl_weight*kl
+        return tf.reduce_logsumexp(full_error) - tf.math.log(float(n_samples))
+
