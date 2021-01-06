@@ -13,29 +13,6 @@ tfkl = tf.keras.layers
 
 
 class Encoder(tfkl.Layer):
-    """Maps input X to latent vector Z, represents q(Z|X)
-
-    Takes an image X (of shape pixel_x, pixel_y, color_channel_depth) and maps it into
-    a Normal distribution of the latent space Z (of shape latent_dim). It does so by
-    calculating the mean and variance of the Gaussian (i.e. has a last deterministic layer
-    of size 2*latent_dim).
-
-    params
-    ----
-
-    prior: The tensorflow probability distribution representing
-        prior the distribution on the latent space (i.e. p(Z))
-
-    original_dim: Shape of the image given as (pixel_x, pixel_y, color_channel_depth)
-
-    latent_dim: Shape of the latent space (in general rank-1 tensor, i.e. a vector),
-        has to agree with the event shape of the prior distribution
-
-    intermediate_dim: Number of hidden units in each hidden layer
-
-    activation: The activation function to use in the gated dense layers
-        (None by default because the Gated already used sigmoid)
-    """
 
     def __init__(
         self,
@@ -131,36 +108,7 @@ class Encoder(tfkl.Layer):
 
 
 class Decoder(tfkl.Layer):
-    """Maps latent vector Z to the original shape X (e.g an image)
-
-    Takes a sample from the latent space Z (of shape latent_dim) and maps it into
-    a distribution over possible images X (of shape pixel_x, pixel_x, color_channel_depth)
-    which correspond to the latent value. This output is either a Bernoulli for a binary
-    color channel or a Normal for a continous color channel.
-
-    If the output is Bernoulli then the last deterministic layer has to contain
-    1*tf.prod(original_dim) parameters (since a Bernoulli only has one parameter
-    per image pixel). If the output is normal then the last deterministic layer has
-    to contain 2*tf.prod(original_dim) parameters (since a Normal has two parameters
-    per pixel (mean and variance)).
-
-    params
-    ----
-
-    original_dim: shape of the X space (given as the shape of a picture
-        (pixel_x, pixel_y, color_channel_depth))
-
-    latent_dim: Shape of the latent space (in general rank-1 tensor, i.e. a vector)
-
-    intermediate_dim: Number of hidden units in each hidden layer
-
-    activation: The activation function to use in the gated dense layers
-        (None by default because the Gated already used sigmoid)
-
-    input_type: In terms of image, whether the color channel is "binary" (i.e. black
-        white) or "continous" (i.e. floating point value between 0.0 and 1.0)
-    """
-
+    
     def __init__(
         self,
         original_dim=(28, 28),
@@ -265,21 +213,6 @@ class Decoder(tfkl.Layer):
 
 
 class HVAE(VAE):
-    """Combines the encoder and decoder into an end-to-end model for training.
-
-    params
-    ----
-
-    original_dim: shape of the X space (given as the shape of a picture
-        (pixel_x, pixel_y, color_channel_depth))
-
-    intermediate_dim: Number of hidden units in each hidden layer
-
-    latent_dim: Shape of the latent space (in general rank-1 tensor, i.e. a vector)
-
-    prior: 
-
-    """
 
     def __init__(
         self,
