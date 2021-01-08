@@ -128,10 +128,10 @@ class VAE(tfk.Model, ABC):
     def neg_log_likelihood(self, x, rv_x):
         return - rv_x.log_prob(x)
 
-    def prepare(self):
+    def prepare(self, learning_rate = 0.001):
         """Convenience function to compile the model
         """
-        self.compile(optimizer=tf.keras.optimizers.Adam(),
+        self.compile(optimizer=tf.keras.optimizers.Adam(learning_rate = learning_rate),
                      loss=self.neg_log_likelihood)
 
     @abstractmethod

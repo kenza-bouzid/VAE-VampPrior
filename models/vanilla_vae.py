@@ -189,16 +189,12 @@ class VanillaVAE(VAE):
         z = self.encoder(inputs)
 
         kl_loss_weighted = self.compute_kl_loss(z)
-        print(kl_loss_weighted.shape)
-
 
         self.add_loss(kl_loss_weighted)
-
 
         reconstructed = self.decoder(z)
         return reconstructed
 
-    @tf.function
     def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000):
         enc_dist = self.encoder(one_x)
 

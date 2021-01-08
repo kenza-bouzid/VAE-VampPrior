@@ -52,7 +52,7 @@ importlib.reload(vae)
 model = vae.VanillaVAE(
     prior_type=vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsGenerated(original_dim = x_train.shape[1:]),  original_dim = x_train.shape[1:])
 
-model.prepare()
+model.prepare(learning_rate=0.0005)
 
 # %%
 checkpoint_path = "../checkpoints/vanilla_vae/test.h5"
@@ -88,8 +88,10 @@ generated_img = decoder(prior.sample(1)).mean()
 plt.imshow(generated_img[0])
 
 # %%
+model.marginal_log_likelihood_over_all_samples(x_test)
+# %%
 # Only of interest if using vampprior
-im_pseudo = np.reshape(model.pseudo_inputs(None), (500, 28, 28))
+im_pseudo = np.reshape(model.pseudo_inputs(None), (500, 105, 105))
 plt.imshow(im_pseudo[np.random.randint(0, 500)])
 # %%
 # Test Marginal Log-Likelihood (????)
