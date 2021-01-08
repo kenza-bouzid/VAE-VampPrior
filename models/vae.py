@@ -53,7 +53,6 @@ class VAE(tfk.Model, ABC):
         **kwargs
     ):
         super(VAE, self).__init__(name=name, **kwargs)
-        print(prior_type)
         self.original_dim = original_dim
         self.intermediate_dim = intermediate_dim
         self.latent_dim = latent_dim
@@ -109,7 +108,6 @@ class VAE(tfk.Model, ABC):
                 z,
                 self.prior,
             )
-        
         return tf.reduce_mean(self.kl_weight * kl_loss, axis=-1)
 
     @abstractmethod
@@ -146,6 +144,6 @@ class VAE(tfk.Model, ABC):
             one_x = tf.expand_dims(one_x, axis=0)
             ll.append(self.marginal_log_likelihood_one_sample(
                 one_x, n_samples
-                )
+            )
             )
         return ll

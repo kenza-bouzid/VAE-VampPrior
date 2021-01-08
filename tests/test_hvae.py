@@ -13,6 +13,7 @@ import numpy as np
 import importlib
 import matplotlib.pyplot as plt
 import models.vae as vae
+import tensorflow_datasets as tfds
 
 tfk = tf.keras
 tfkl = tfk.layers
@@ -27,6 +28,21 @@ if device_name != '/device:GPU:0':
 print('Found GPU at: {}'.format(device_name))
 
 # %%
+omniglot = tfds.load('omniglot', split = "train")
+ex = omniglot.take(1)
+for e in tfds.as_numpy(ex):
+  im = e['image']
+  print(im.shape)
+  im = im[:,:,0]
+  print(im.shape)
+  plt.imshow(im, cmap='Greys')
+# %%
+x_train = tfds.load('omniglot', split = "train")
+x_train = np.array([x['image'][:,:,0] for x in tfds.as_numpy(x_train)])
+x_test = tfds.load('omniglot', split = "test")
+x_test = np.array([x['image'][:,:,0] for x in tfds.as_numpy(x_test)])
+
+# %%
 mnist = tf.keras.datasets.mnist
 
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -36,7 +52,8 @@ x_test = x_test.astype(np.float32) / 255
 x_train.shape
 # %%
 importlib.reload(hvae)
-model = hvae.HVAE(prior_type = vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsData(x_train[:500]))
+model = hvae.HVAE(original_dim = x_train.shape[1:], prior_type = vae.Prior.STANDARD_GAUSSIAN)
+#model = hvae.HVAE(prior_type = vae.Prior.STANDARD_GAUSSIAN)
 model.prepare()
 
 #%%
@@ -49,7 +66,7 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 with tf.device('/device:GPU:0'):
-    model.fit(x_train, x_train, epochs=1,
+    model.fit(x_train, x_train, epochs=2,
               batch_size=100, callbacks=[es_callback])
 # %%
 # checkpoint_path = "../checkpoints/hvae/test.h5"

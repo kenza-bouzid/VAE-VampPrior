@@ -108,7 +108,7 @@ class Encoder(tfkl.Layer):
 
 
 class Decoder(tfkl.Layer):
-    
+
     def __init__(
         self,
         original_dim=(28, 28),
@@ -194,13 +194,12 @@ class Decoder(tfkl.Layer):
         z1 = self.p_z1(z1)
         mean = z1.mean()
         stddev = z1.stddev()
-        print("mean", mean.shape, "sdtdev", stddev.shape)
         return z1, mean, stddev
 
     def forward_px(self, z1, z2):
         x1 = self.px_z1(z1)
         x2 = self.px_z2(z2)
-        x1_x2 = tfkl.concatenate([x1, x2], axis=1)
+        x1_x2 = tfkl.concatenate([x1, x2], axis=-1)
         x = self.pre_reconstruct_layer(x1_x2)
         return self.reconstruct_layer(x)
 
@@ -227,7 +226,6 @@ class HVAE(VAE):
             loc=tf.zeros(self.latent_dim1),
             scale=1.0,
         ), reinterpreted_batch_ndims=1)
-        print(self.prior1)
 
         self.encoder = Encoder(prior1=self.prior1,
                                original_dim=self.original_dim,
@@ -255,7 +253,6 @@ class HVAE(VAE):
         z1, z2 = self.encoder(inputs)
 
         if self.prior_type == Prior.VAMPPRIOR:
-            print("before recompute")
             self.recompute_prior()
 
         reconstructed, mean_z1, stddev_z1 = self.decoder(z1, z2)
@@ -272,15 +269,15 @@ class HVAE(VAE):
             self.prior = self.recompute_prior()
         return self.prior1, self.prior
 
-    @tf.function
     def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000):
         # n_repetions = n_samples / batch_shape
         # For one sample the KL is identical
         z1, z2 = self.encoder(one_x)
-        kl = tfd.kl_divergence(z2, self.prior) + tfd.kl_divergence(z1, self.prior1)
+        kl = self.compute_kl_loss(z2, n_samples = n_samples) + \
+            tfd.kl_divergence(z1, self.prior1)
         # n_samples different reconstruction errors
-        reconst_img_dist_n_samples_batched = self.decoder.generate_img(z2.sample(n_samples))
+        reconst_img_dist_n_samples_batched = self.decoder.generate_img(
+            z2.sample(n_samples))
         reconst_error = reconst_img_dist_n_samples_batched.log_prob(one_x)
         full_error = reconst_error - self.kl_weight*kl
         return tf.reduce_logsumexp(full_error) - tf.math.log(float(n_samples))
-

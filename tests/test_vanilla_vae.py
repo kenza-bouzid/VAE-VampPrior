@@ -10,6 +10,7 @@ import datetime
 import models.vanilla_vae as vae
 import utils.evaluation as evaluation
 from utils.pseudo_inputs import PInputsData, PInputsGenerated, PseudoInputs
+import tensorflow_datasets as tfds
 
 
 tfk = tf.keras
@@ -30,10 +31,26 @@ mnist = tf.keras.datasets.mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 x_train = x_train.astype(np.float32) / 255
 x_test = x_test.astype(np.float32) / 255
+
+# %%
+omniglot = tfds.load('omniglot', split = "train")
+ex = omniglot.take(1)
+for e in tfds.as_numpy(ex):
+  im = e['image']
+  print(im.shape)
+  im = im[:,:,0]
+  print(im.shape)
+  plt.imshow(im, cmap='Greys')
+# %%
+x_train = tfds.load('omniglot', split = "train")
+x_train = np.array([x['image'][:,:,0] for x in tfds.as_numpy(x_train)]).astype(np.float32) / 255
+x_test = tfds.load('omniglot', split = "test")
+x_test = np.array([x['image'][:,:,0] for x in tfds.as_numpy(x_test)]).astype(np.float32) / 255
+
 # %%
 importlib.reload(vae)
 model = vae.VanillaVAE(
-    prior_type=vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsGenerated())
+    prior_type=vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsGenerated(original_dim = x_train.shape[1:]),  original_dim = x_train.shape[1:])
 
 model.prepare()
 
@@ -66,7 +83,7 @@ plt.show()
 prior = model.get_prior()
 encoder = model.get_encoder()
 decoder = model.get_decoder()
-generated_img = decoder(prior.sample(1)).sample()
+generated_img = decoder(prior.sample(1)).mean()
 
 plt.imshow(generated_img[0])
 
