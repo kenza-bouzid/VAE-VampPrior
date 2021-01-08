@@ -45,8 +45,8 @@ class VAE(tfk.Model, ABC):
         latent_dim=40,
         prior_type=Prior.STANDARD_GAUSSIAN,
         input_type=InputType.BINARY,
-        n_monte_carlo_samples=5,
-        kl_weight=3,
+        n_monte_carlo_samples=1,
+        kl_weight=1.0,
         pseudo_inputs: PseudoInputs = None,
         activation=None,
         name="vae",
@@ -93,23 +93,24 @@ class VAE(tfk.Model, ABC):
         )
         return self.prior
 
-    def compute_kl_loss(self, z):
-        # print("shapes args", z, prior)
-        # Calculate the KL loss using a monte_carlo sample
-        z_sample = self.prior.sample(self.n_monte_carlo_samples)
-        # print("z sample", z_sample.shape)
-        # Add additional dimension to enable broadcasting with the vamp prior,
-        # then reverse because the batch_dim is required to be the first axis
-        z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
-        # print(z_log_prob.shape)
-        prior_log_prob = self.prior.log_prob(z_sample)
-        # print(prior_log_prob.shape)
-        # Mean over monte-carlo samples and batch size
-        # print("shapes",prior_log_prob.shape, z_log_prob.shape)
-        kl_loss_total = prior_log_prob - z_log_prob
-        # print(kl_loss_total.shape)
-        kl_loss = tf.reduce_mean(kl_loss_total)
-        return self.kl_weight * kl_loss
+    def compute_kl_loss(self, z, n_samples=None):
+        if n_samples is None:
+            n_samples = self.n_monte_carlo_samples
+
+        if self.prior_type == Prior.VAMPPRIOR:
+            self.recompute_prior()
+            kl_loss = tfp.vi.monte_carlo_variational_loss(
+                self.prior.log_prob,
+                z,
+                sample_size=n_samples,
+            )
+        else:
+            kl_loss = tfd.kl_divergence(
+                z,
+                self.prior,
+            )
+        
+        return tf.reduce_mean(self.kl_weight * kl_loss, axis=-1)
 
     @abstractmethod
     def call(self, inputs):

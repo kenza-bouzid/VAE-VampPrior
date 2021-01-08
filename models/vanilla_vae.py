@@ -188,24 +188,26 @@ class VanillaVAE(VAE):
     def call(self, inputs):
         z = self.encoder(inputs)
 
-        if self.prior_type == Prior.VAMPPRIOR:
-            self.recompute_prior()
+        kl_loss_weighted = self.compute_kl_loss(z)
+        print(kl_loss_weighted.shape)
 
-        kl_loss = self.compute_kl_loss(z)
-        self.add_loss(kl_loss)
+
+        self.add_loss(kl_loss_weighted)
+
 
         reconstructed = self.decoder(z)
         return reconstructed
 
     @tf.function
     def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000):
-        # n_repetions = n_samples / batch_shape
-        # For one sample the KL is identical
         enc_dist = self.encoder(one_x)
-        kl = - tfd.kl_divergence(enc_dist, self.prior)
-        # n_samples different reconstruction errors
+
+        kl_loss_weighted = self.compute_kl_loss(enc_dist, n_samples=n_samples)
+
         reconst_img_dist_n_samples_batched = self.decoder(
-            enc_dist.sample(n_samples))
+            enc_dist.sample(n_samples)
+        )
         reconst_error = reconst_img_dist_n_samples_batched.log_prob(one_x)
-        full_error = reconst_error + self.kl_weight*kl
+
+        full_error = reconst_error + kl_loss_weighted
         return tf.reduce_logsumexp(full_error) - tf.math.log(float(n_samples))
