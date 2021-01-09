@@ -207,3 +207,13 @@ class VanillaVAE(VAE):
 
         full_error = reconst_error + kl_loss_weighted
         return tf.reduce_logsumexp(full_error) - tf.math.log(float(n_samples))
+    
+    def marginal_log_likelihood_over_all_samples(self, x_test, n_samples=5000):
+        ll = []
+        for one_x in x_test:
+            one_x = tf.expand_dims(one_x, axis=0)
+            ll.append(self.marginal_log_likelihood_one_sample(
+                one_x, n_samples
+            )
+            )
+        return ll

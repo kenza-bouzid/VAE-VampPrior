@@ -52,7 +52,7 @@ x_train = x_train[:1000]
 x_train.shape
 # %%
 importlib.reload(hvae)
-#model = hvae.HVAE(original_dim = x_train.shape[1:], prior_type = vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsData(x_train[:500]))
+# model = hvae.HVAE(original_dim = x_train.shape[1:], prior_type = vae.Prior.VAMPPRIOR, pseudo_inputs = PInputsData(x_train[:500]))
 model = hvae.HVAE(original_dim = x_train.shape[1:], prior_type = vae.Prior.STANDARD_GAUSSIAN)
 model.prepare(learning_rate=0.0005)
 
@@ -85,9 +85,10 @@ generated_img = decoder.generate_img(prior2.sample(1)).mean()
 
 plt.imshow(generated_img[0])
 # %%
-# model.marginal_log_likelihood_one_sample(x_train[0])
+model.marginal_log_likelihood_one_sample(x_train[:2])
+
 # %%
-model.marginal_log_likelihood_over_all_samples(x_train)
+# model.marginal_log_likelihood_over_all_samples(x_train)
 # %%
 # Test Marginal Log-Likelihood (????)
 reconst_test_dist = model(x_test)

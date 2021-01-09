@@ -269,16 +269,32 @@ class HVAE(VAE):
             self.prior = self.recompute_prior()
         return self.prior1, self.prior
 
-    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000):
-        # n_repetions = n_samples / batch_shape
-        # For one sample the KL is identical
-        z1, z2 = self.encoder(one_x)
-        
-        # update priors
+    def refresh_priors(self, x_test):
+        if self.prior_type == Prior.VAMPPRIOR:
+            self.prior = self.recompute_prior()
+        z1, z2 = self.encoder(x_test)
         _, mean_z1, stddev_z1 = self.decoder(z1, z2)
         self.update_prior1(mean_z1, stddev_z1)
-        self.prior = self.recompute_prior()
 
+
+    def marginal_log_likelihood_over_all_samples(self, x_test, n_samples=5000):
+        # update priors to avoid tensorflow probability exceptions
+        self.refresh_priors(x_test)
+        ll = []
+        for one_x in x_test:
+            one_x = tf.expand_dims(one_x, axis=0)
+            ll.append(self.marginal_log_likelihood_one_sample(
+                one_x, n_samples, refresh_priors=False
+            )
+            )
+        return ll
+
+    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_priors = True):
+        # n_repetions = n_samples / batch_shape
+        if refresh_priors:
+            self.refresh_priors(one_x)
+        # For one sample the KL is identical
+        z1, z2 = self.encoder(one_x)
         kl = self.compute_kl_loss(z2, n_samples = n_samples) + \
             tfd.kl_divergence(z1, self.prior1)
         # n_samples different reconstruction errors
