@@ -273,6 +273,12 @@ class HVAE(VAE):
         # n_repetions = n_samples / batch_shape
         # For one sample the KL is identical
         z1, z2 = self.encoder(one_x)
+        
+        # update priors
+        _, mean_z1, stddev_z1 = self.decoder(z1, z2)
+        self.update_prior1(mean_z1, stddev_z1)
+        self.prior = self.recompute_prior()
+
         kl = self.compute_kl_loss(z2, n_samples = n_samples) + \
             tfd.kl_divergence(z1, self.prior1)
         # n_samples different reconstruction errors
