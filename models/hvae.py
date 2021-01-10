@@ -290,16 +290,18 @@ class HVAE(VAE):
         return ll
 
     def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_priors = True):
-        # n_repetions = n_samples / batch_shape
         if refresh_priors:
             self.refresh_priors(one_x)
+
         # For one sample the KL is identical
         z1, z2 = self.encoder(one_x)
         kl = self.compute_kl_loss(z2, n_samples = n_samples) + \
             tfd.kl_divergence(z1, self.prior1)
+
         # n_samples different reconstruction errors
         reconst_img_dist_n_samples_batched = self.decoder.generate_img(
             z2.sample(n_samples))
         reconst_error = reconst_img_dist_n_samples_batched.log_prob(one_x)
-        full_error = reconst_error - self.kl_weight*kl
+
+        full_error = reconst_error - kl
         return tf.reduce_logsumexp(full_error) - tf.math.log(float(n_samples))
