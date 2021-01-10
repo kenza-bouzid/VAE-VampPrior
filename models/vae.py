@@ -97,7 +97,7 @@ class VAE(tfk.Model, ABC):
             n_samples = self.n_monte_carlo_samples
 
         if self.prior_type == Prior.VAMPPRIOR:
-            self.recompute_prior()
+            # self.recompute_prior()
             kl_loss = tfp.vi.monte_carlo_variational_loss(
                 self.prior.log_prob,
                 z,

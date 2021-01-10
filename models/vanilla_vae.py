@@ -195,7 +195,14 @@ class VanillaVAE(VAE):
         reconstructed = self.decoder(z)
         return reconstructed
 
-    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000):
+    def refresh_priors(self):
+        if self.prior_type == Prior.VAMPPRIOR:
+            self.recompute_prior()
+
+    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_prior=True):
+        if refresh_prior:
+            self.refresh_prior()
+
         enc_dist = self.encoder(one_x)
 
         kl_loss_weighted = self.compute_kl_loss(enc_dist, n_samples=n_samples)
@@ -210,6 +217,7 @@ class VanillaVAE(VAE):
     
     def marginal_log_likelihood_over_all_samples(self, x_test, n_samples=5000):
         ll = []
+        self.refresh_priors()
         for one_x in x_test:
             one_x = tf.expand_dims(one_x, axis=0)
             ll.append(self.marginal_log_likelihood_one_sample(
