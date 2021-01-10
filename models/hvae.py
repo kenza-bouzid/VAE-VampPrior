@@ -21,6 +21,7 @@ class Encoder(tfkl.Layer):
         intermediate_dim=300,
         latent_dim1=40,
         latent_dim2=40,
+        kl_weight=1,
         activation=None,
         name="encoder",
         **kwargs
@@ -33,6 +34,7 @@ class Encoder(tfkl.Layer):
         self.latent_dim2 = latent_dim2
         self.intermediate_dim = intermediate_dim
         self.activation = activation
+        self.kl_weight = kl_weight
 
         self.input_layer_x = tfkl.InputLayer(
             input_shape=self.original_dim, name="input_x")
@@ -81,8 +83,9 @@ class Encoder(tfkl.Layer):
             name="pre_latent_layer_z1",
         )
         # Activity Regularizer adds the KL Divergence loss to the encoder
-        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1,
-                                                      activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior1, use_exact_kl=True))
+        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1, activity_regularizer=tfpl.KLDivergenceRegularizer(
+            self.prior1, use_exact_kl=True, weight=self.kl_weight,
+            test_points_reduce_axis=0))
 
     def forward_qz2_layers(self, x):
         z2 = self.qz2_first(x)
@@ -111,22 +114,26 @@ class Decoder(tfkl.Layer):
 
     def __init__(
         self,
+        prior1,
         original_dim=(28, 28),
         latent_dim1=40,
         latent_dim2=40,
         intermediate_dim=300,
         input_type=InputType.BINARY,
+        kl_weight=1.0,
         activation=None,
         name="decoder",
         **kwargs
     ):
         super(Decoder, self).__init__(name=name, **kwargs)
 
+        self.prior1 = prior1
         self.original_dim = original_dim
         self.latent_dim1 = latent_dim1
         self.latent_dim2 = latent_dim2
         self.intermediate_dim = intermediate_dim
         self.activation = activation
+        self.kl_weight = kl_weight
         self.input_type = input_type
 
         self.input_layer_z2 = tfkl.InputLayer(
@@ -153,7 +160,9 @@ class Decoder(tfkl.Layer):
         )
 
         self.p_z1 = tfpl.IndependentNormal(
-            self.latent_dim1)
+            self.latent_dim1, activity_regularizer=tfpl.KLDivergenceRegularizer(
+                self.prior1, use_exact_kl=True, weight=self.kl_weight,
+                test_points_reduce_axis=0))
 
     def set_px_layers(self):
 
@@ -232,12 +241,15 @@ class HVAE(VAE):
                                intermediate_dim=self.intermediate_dim,
                                latent_dim1=self.latent_dim1,
                                latent_dim2=self.latent_dim,
+                               kl_weight=self.kl_weight,
                                activation=self.activation)
 
-        self.decoder = Decoder(original_dim=self.original_dim,
+        self.decoder = Decoder(prior1=self.prior1,
+                               original_dim=self.original_dim,
                                intermediate_dim=self.intermediate_dim,
                                latent_dim1=self.latent_dim1,
                                latent_dim2=self.latent_dim,
+                               kl_weight=self.kl_weight,
                                activation=self.activation,
                                input_type=self.input_type)
 
@@ -259,6 +271,7 @@ class HVAE(VAE):
 
         self.update_prior1(mean_z1, stddev_z1)
         self.encoder.prior1 = self.prior1
+        self.decoder.prior1 = self.prior1
 
         kl_loss = self.compute_kl_loss(z2)
         self.add_loss(kl_loss)
@@ -276,7 +289,6 @@ class HVAE(VAE):
         _, mean_z1, stddev_z1 = self.decoder(z1, z2)
         self.update_prior1(mean_z1, stddev_z1)
 
-
     def marginal_log_likelihood_over_all_samples(self, x_test, n_samples=5000):
         # update priors to avoid tensorflow probability exceptions
         self.refresh_priors(x_test)
@@ -289,13 +301,13 @@ class HVAE(VAE):
             )
         return ll
 
-    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_priors = True):
+    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_priors=True):
         if refresh_priors:
             self.refresh_priors(one_x)
 
         # For one sample the KL is identical
         z1, z2 = self.encoder(one_x)
-        kl = self.compute_kl_loss(z2, n_samples = n_samples) + \
+        kl = self.compute_kl_loss(z2, n_samples=n_samples) + \
             tfd.kl_divergence(z1, self.prior1)
 
         # n_samples different reconstruction errors
