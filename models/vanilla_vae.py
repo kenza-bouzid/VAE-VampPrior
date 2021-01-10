@@ -194,7 +194,7 @@ class VanillaVAE(VAE):
 
         reconstructed = self.decoder(z)
         return reconstructed
-
+    
     def refresh_priors(self):
         if self.prior_type == Prior.VAMPPRIOR:
             self.recompute_prior()
@@ -221,7 +221,7 @@ class VanillaVAE(VAE):
         for one_x in x_test:
             one_x = tf.expand_dims(one_x, axis=0)
             ll.append(self.marginal_log_likelihood_one_sample(
-                one_x, n_samples
+                one_x, n_samples, refresh_prior=False
             )
             )
         return ll
