@@ -1,24 +1,14 @@
 import tensorflow as tf
-from tensorflow.python.types.core import Value
 import tensorflow_probability as tfp
 import numpy as np
 from enum import Enum
 from utils.layers import GatedDense
 from utils.pseudo_inputs import PseudoInputs
-
+from models.vae import VAE, Prior, InputType
 tfd = tfp.distributions
 tfpl = tfp.layers
 tfk = tf.keras
 tfkl = tf.keras.layers
-
-
-class Prior(Enum):
-    STANDARD_GAUSSIAN = 0
-    VAMPPRIOR = 1
-
-
-class InputType(Enum):
-    BINARY = 0
 
 
 class Encoder(tfkl.Layer):
@@ -123,8 +113,8 @@ class Decoder(tfkl.Layer):
         original_dim=(28, 28),
         latent_dim=40,
         intermediate_dim=300,
-        activation=None,
         input_type=InputType.BINARY,
+        activation=None,
         name="decoder",
         **kwargs
     ):
@@ -160,7 +150,7 @@ class Decoder(tfkl.Layer):
         return self.reconstruct_layer(x)
 
 
-class VariationalAutoEncoder(tfk.Model):
+class VanillaVAE(VAE):
     """Combines the encoder and decoder into an end-to-end model for training.
 
     params
@@ -179,98 +169,59 @@ class VariationalAutoEncoder(tfk.Model):
 
     def __init__(
         self,
-        original_dim=(28, 28),
-        intermediate_dim=300,
-        latent_dim=40,
-        prior_type=Prior.STANDARD_GAUSSIAN,
-        input_type=InputType.BINARY,
-        activation=None,
-        name="autoencoder",
-        n_monte_carlo_samples=5,
-        pseudo_inputs: PseudoInputs = None,
+        name="vanilla_vae",
         **kwargs
     ):
-        super(VariationalAutoEncoder, self).__init__(name=name, **kwargs)
-        self.prior_type = prior_type
-        self.original_dim = original_dim
-        self.n_monte_carlo_samples = n_monte_carlo_samples
-        self.pseudo_inputs = pseudo_inputs
-        if prior_type == Prior.STANDARD_GAUSSIAN:
-            self.prior = tfd.Independent(tfd.Normal(
-                loc=tf.zeros(latent_dim),
-                scale=1.0,
-            ), reinterpreted_batch_ndims=1)
+        super(VanillaVAE, self).__init__(
+            name=name, **kwargs)
 
-        self.encoder = Encoder(original_dim=original_dim,
-                               latent_dim=latent_dim,
-                               intermediate_dim=intermediate_dim)
-        self.decoder = Decoder(original_dim=original_dim,
-                               latent_dim=latent_dim,
-                               intermediate_dim=intermediate_dim,
-                               activation=activation,
-                               input_type=input_type)
-
-    def recompute_prior(self):
-
-        # Uses the current version of the encoder (i.e. the current state of the
-        # updated weights in the neural network) to find the encoded
-        # representation of the pseudo inputs
-        pseudo_input_encoded_posteriors = self.encoder(
-            self.pseudo_inputs(None))
-
-        self.prior = tfd.MixtureSameFamily(
-            mixture_distribution=tfd.Categorical(
-                probs=1.0/self.pseudo_inputs.get_n() * tf.ones(self.pseudo_inputs.get_n())
-            ),
-            components_distribution=pseudo_input_encoded_posteriors,
-            name="vamp_prior"
-        )
-        return self.prior
-
-    def compute_kl_loss(self, z):
-        # Calculate the KL loss using a monte_carlo sample
-        z_sample = self.prior.sample(self.n_monte_carlo_samples)
-
-        # Add additional dimension to enable broadcasting with the vamp prior,
-        # then reverse because the batch_dim is required to be the first axis
-        z_log_prob = tf.transpose(z.log_prob(tf.expand_dims(z_sample, axis=1)))
-        # print(z_log_prob.shape)
-        prior_log_prob = self.prior.log_prob(z_sample)
-        # print(prior_log_prob.shape)
-        # Mean over monte-carlo samples and batch size
-        kl_loss_total = prior_log_prob - z_log_prob
-        # print(kl_loss_total.shape)
-        kl_loss = tf.reduce_mean(kl_loss_total)
-        return kl_loss
+        self.encoder = Encoder(original_dim=self.original_dim,
+                               latent_dim=self.latent_dim,
+                               intermediate_dim=self.intermediate_dim,
+                               activation=self.activation)
+        self.decoder = Decoder(original_dim=self.original_dim,
+                               latent_dim=self.latent_dim,
+                               intermediate_dim=self.intermediate_dim,
+                               activation=self.activation,
+                               input_type=self.input_type)
 
     def call(self, inputs):
         z = self.encoder(inputs)
 
-        if self.prior_type == Prior.VAMPPRIOR:
-            self.recompute_prior()
+        kl_loss_weighted = self.compute_kl_loss(z)
 
-        kl_loss = self.compute_kl_loss(z)
-        self.add_loss(kl_loss)
+        self.add_loss(kl_loss_weighted)
 
         reconstructed = self.decoder(z)
         return reconstructed
-
-    def get_encoder(self):
-        return self.encoder
-
-    def get_decoder(self):
-        return self.decoder
-
-    def get_prior(self):
-        if self.prior_type != Prior.STANDARD_GAUSSIAN:
+    
+    def refresh_priors(self):
+        if self.prior_type == Prior.VAMPPRIOR:
             self.recompute_prior()
-        return self.prior
 
-    def neg_log_likelihood(self, x, rv_x):
-        return - rv_x.log_prob(x)
+    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_prior=True):
+        if refresh_prior:
+            self.refresh_prior()
 
-    def prepare(self):
-        """Convenience function to compile the model
-        """
-        self.compile(optimizer=tf.keras.optimizers.Adam(),
-                     loss=self.neg_log_likelihood)
+        enc_dist = self.encoder(one_x)
+
+        kl_loss_weighted = self.compute_kl_loss(enc_dist, n_samples=n_samples)
+
+        reconst_img_dist_n_samples_batched = self.decoder(
+            enc_dist.sample(n_samples)
+        )
+        reconst_error = reconst_img_dist_n_samples_batched.log_prob(one_x)
+
+        full_error = reconst_error - kl_loss_weighted
+        return tf.reduce_logsumexp(full_error) - tf.math.log(float(n_samples))
+    
+    def marginal_log_likelihood_over_all_samples(self, x_test, n_samples=5000):
+        ll = []
+        self.refresh_priors()
+        for one_x in x_test:
+            one_x = tf.expand_dims(one_x, axis=0)
+            ll.append(self.marginal_log_likelihood_one_sample(
+                one_x, n_samples, refresh_prior=False
+            )
+            )
+        return ll

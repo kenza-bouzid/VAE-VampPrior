@@ -21,8 +21,8 @@ class PseudoInputs(tfkl.Layer):
 
 
 class PInputsGenerated(PseudoInputs):
-    def __init__(self, pseudo_inputs_mean=0.0,
-                 pseudo_inputs_std=0.01, original_dim=(28, 28), n_pseudo_inputs=500):
+    def __init__(self, original_dim=(28, 28), pseudo_inputs_mean=0.0,
+                 pseudo_inputs_std=0.01, n_pseudo_inputs=500):
         super().__init__(n_pseudo_inputs)
         self.pseudo_input_std = pseudo_inputs_std
         self.pseudo_input_mean = pseudo_inputs_mean
