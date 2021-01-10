@@ -81,8 +81,7 @@ class Encoder(tfkl.Layer):
             name="pre_latent_layer_z1",
         )
         # Activity Regularizer adds the KL Divergence loss to the encoder
-        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1,
-                                                      activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior1, use_exact_kl=True))
+        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1) #? , activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior1, use_exact_kl=True)
 
     def forward_qz2_layers(self, x):
         z2 = self.qz2_first(x)
@@ -183,18 +182,16 @@ class Decoder(tfkl.Layer):
         return self.pz1
 
     def generate_img(self, z2):
-        z1, _, _, = self.forward_pz1(z2)
+        z1 = self.forward_pz1(z2)
         generated = self.forward_px(z1, z2)
         return generated
 
     def forward_pz1(self, z2):
-        z1 = self.pz1_l1(z2)
-        z1 = self.pz1_l2(z1)
-        z1 = self.pre_latent_layer_pz1(z1)
-        z1 = self.p_z1(z1)
-        mean = z1.mean()
-        stddev = z1.stddev()
-        return z1, mean, stddev
+        z1_p = self.pz1_l1(z2)
+        z1_p = self.pz1_l2(z1_p)
+        z1_p = self.pre_latent_layer_pz1(z1_p)
+        z1_p = self.p_z1(z1_p)
+        return z1_p
 
     def forward_px(self, z1, z2):
         x1 = self.px_z1(z1)
@@ -206,9 +203,9 @@ class Decoder(tfkl.Layer):
     def call(self, z1, z2):
         z1 = self.input_layer_z1(z1)
         z2 = self.input_layer_z2(z2)
-        _, mean, stddev = self.forward_pz1(z2)
+        z1_p = self.forward_pz1(z2) #! TODO pb de comprehension
         x = self.forward_px(z1, z2)
-        return x, mean, stddev
+        return x, z1_p
 
 
 class HVAE(VAE):
@@ -255,13 +252,18 @@ class HVAE(VAE):
         if self.prior_type == Prior.VAMPPRIOR:
             self.recompute_prior()
 
-        reconstructed, mean_z1, stddev_z1 = self.decoder(z1, z2)
-
-        self.update_prior1(mean_z1, stddev_z1)
+        reconstructed, z1_p = self.decoder(z1, z2)
+        self.prior1 = z1_p
         self.encoder.prior1 = self.prior1
 
         kl_loss = self.compute_kl_loss(z2)
         self.add_loss(kl_loss)
+        kl_loss_prior1 = tfd.kl_divergence(
+                z1,
+                self.prior1,
+            )
+        self.add_loss(tf.reduce_mean(kl_loss_prior1))
+
         return reconstructed
 
     def get_priors(self):
@@ -273,8 +275,9 @@ class HVAE(VAE):
         if self.prior_type == Prior.VAMPPRIOR:
             self.prior = self.recompute_prior()
         z1, z2 = self.encoder(x_test)
-        _, mean_z1, stddev_z1 = self.decoder(z1, z2)
-        self.update_prior1(mean_z1, stddev_z1)
+        _, z1_p = self.decoder(z1, z2)
+        self.prior1 = z1_p
+        #self.update_prior1(mean_z1, stddev_z1)
 
 
     def marginal_log_likelihood_over_all_samples(self, x_test, n_samples=5000):
