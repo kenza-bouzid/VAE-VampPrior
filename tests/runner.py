@@ -161,6 +161,5 @@ class Runner():
         self.fetch_dataset()
         self.prepare_model()
         self.reload_if_possible()
-        self.full_history = pd.read_csv(self.history_path, names=[
-                                        "epoch", "loss", "val_loss"])
+        self.full_history = pd.read_csv(self.history_path)
         return (self.model, self.full_history)

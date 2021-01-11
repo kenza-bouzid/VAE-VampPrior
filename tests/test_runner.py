@@ -1,10 +1,10 @@
 # %%
 import runner as runner
-runner_instance = runner.Runner(dataset_key=runner.Dataset.MNIST, architecture=runner.Architecture.VANILLA, prior_configuration=runner.PriorConfiguration.SG, n_epochs=5)
+runner_instance = runner.Runner(dataset_key=runner.Dataset.MNIST, architecture=runner.Architecture.VANILLA, prior_configuration=runner.PriorConfiguration.SG, n_epochs=10, root="../exports")
 runner_instance.run()
 # %%
 import runner as runner
-runner_instance = runner.Runner(dataset_key=runner.Dataset.MNIST, architecture=runner.Architecture.VANILLA, prior_configuration=runner.PriorConfiguration.SG, n_epochs=5)
+runner_instance = runner.Runner(dataset_key=runner.Dataset.MNIST, architecture=runner.Architecture.VANILLA, prior_configuration=runner.PriorConfiguration.SG, n_epochs=100,root="../exports")
 runner_instance.reload_existing_model()
 
 # %%
