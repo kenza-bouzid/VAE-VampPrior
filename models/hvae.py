@@ -281,12 +281,14 @@ class HVAE(VAE):
         # update priors to avoid tensorflow probability exceptions
         self.refresh_priors(x_test)
         ll = []
+        progress_bar = tfk.utils.Progbar(x_test.shape[0])
         for one_x in x_test:
             one_x = tf.expand_dims(one_x, axis=0)
             ll.append(self.marginal_log_likelihood_one_sample(
                 one_x, n_samples, refresh_priors=False
             )
             )
+            progress_bar.add(1)
         return ll
 
     def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_priors = True):
