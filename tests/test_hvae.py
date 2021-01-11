@@ -4,7 +4,6 @@ import sys
 sys.path.append('../')
 
 from utils.pseudo_inputs import PInputsData, PInputsGenerated, PseudoInputs
-import utils.evaluation as evaluation
 import models.hvae as hvae
 import datetime
 import tensorflow_probability as tfp
