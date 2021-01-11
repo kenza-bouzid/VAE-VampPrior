@@ -1,15 +1,16 @@
 import sys
 sys.path.append('../')
-from enum import Enum
-import models.hvae as hvae
-import tensorflow as tf
-import models.vae as vae
-import models.vanilla_vae as vanilla_vae
-from utils.datasets import DatasetKey, get_dataset
-from utils.pseudo_inputs import PInputsData, PInputsGenerated
-import pandas as pd
-import os 
+
+import os
 import numpy as np
+import pandas as pd
+from utils.pseudo_inputs import PInputsData, PInputsGenerated
+from utils.datasets import DatasetKey, get_dataset
+import models.vanilla_vae as vanilla_vae
+import models.vae as vae
+import tensorflow as tf
+import models.hvae as hvae
+from enum import Enum
 
 Dataset = DatasetKey
 
@@ -40,22 +41,24 @@ prior_key_dict = {
 }
 
 
-def get_checkpoint_path(dataset_key, architecture, prior_configuration):
-    name = "{root_dir}/{dataset}_{model}_{prior}.cpkt".format(
+def get_checkpoint_path(dataset_key, architecture, prior_configuration, n_epochs=2000):
+    name = "{root_dir}/{dataset}_{model}_{prior}_{n_epochs}.cpkt".format(
         root_dir="../checkpoints",
         dataset=dataset_key_dict[dataset_key],
         model=architecture_key_dict[architecture],
-        prior=prior_key_dict[prior_configuration]
+        prior=prior_key_dict[prior_configuration],
+        n_epochs=n_epochs
     )
     return name
 
 
-def get_history_path(dataset_key, architecture, prior_configuration):
-    name = "{root_dir}/{dataset}_{model}_{prior}.csv".format(
+def get_history_path(dataset_key, architecture, prior_configuration, n_epochs=2000):
+    name = "{root_dir}/{dataset}_{model}_{prior}_{n_epochs}.csv".format(
         root_dir="../history",
         dataset=dataset_key_dict[dataset_key],
         model=architecture_key_dict[architecture],
-        prior=prior_key_dict[prior_configuration]
+        prior=prior_key_dict[prior_configuration],
+        n_epochs=n_epochs
     )
     return name
 
@@ -70,21 +73,23 @@ class Runner():
         dataset_key: DatasetKey,
         architecture: Architecture,
         prior_configuration: PriorConfiguration,
-        nb_epochs=2000
+        n_epochs=2000
     ):
         self.dataset_key = dataset_key
         self.architecture = architecture
         self.prior_configuration = prior_configuration
-        self.nb_epochs = nb_epochs
+        self.n_epochs = n_epochs
         self.checkpoint_path = get_checkpoint_path(
             dataset_key=dataset_key,
             architecture=architecture,
-            prior_configuration=prior_configuration
+            prior_configuration=prior_configuration,
+            n_epochs=n_epochs
         )
         self.history_path = get_history_path(
             dataset_key=self.dataset_key,
             architecture=self.architecture,
-            prior_configuration=self.prior_configuration
+            prior_configuration=self.prior_configuration,
+            n_epochs=n_epochs
         )
 
     def fetch_dataset(self):
@@ -112,8 +117,9 @@ class Runner():
 
     def reload_if_possible(self):
         if not os.path.isfile(self.history_path):
-            return # no history stored for this model
-        history_losses = pd.read_csv(self.history_path, names = ["epoch", "loss", "val_loss"])
+            return  # no history stored for this model
+        history_losses = pd.read_csv(self.history_path, names=[
+                                     "epoch", "loss", "val_loss"])
         number_epochs_done = history_losses.shape[0]
         if number_epochs_done != 0:
             # relink all layers
@@ -121,7 +127,7 @@ class Runner():
             self.model(np.zeros(one_input_size))
 
             self.model.load_weights(self.checkpoint_path)
-            self.nb_epochs -= number_epochs_done
+            self.n_epochs -= number_epochs_done
 
     def run(self):
         self.fetch_dataset()
@@ -136,12 +142,15 @@ class Runner():
                                                          save_weights_only=False,
                                                          monitor='val_loss',
                                                          verbose=1)
-        csv_logger = tf.keras.callbacks.CSVLogger(self.history_path, append=True)
+        csv_logger = tf.keras.callbacks.CSVLogger(
+            self.history_path, append=True)
 
-        if self.nb_epochs <= 0:
-            print("This model has already been trained and stored for the required number of epochs.")
-            print("Delete the file under {history} if you want to retrain.".format(history = self.history_path))
-        self.model.fit(self.x_train, self.x_train, epochs=self.nb_epochs,
+        if self.n_epochs <= 0:
+            print(
+                "This model has already been trained and stored for the required number of epochs.")
+            print("Delete the file under {history} if you want to retrain.".format(
+                history=self.history_path))
+        self.model.fit(self.x_train, self.x_train, epochs=self.n_epochs,
                        validation_split=0.02, batch_size=100, callbacks=[es_callback, cp_callback, csv_logger])
 
     # To be used after training
@@ -149,5 +158,6 @@ class Runner():
         self.fetch_dataset()
         self.prepare_model()
         self.reload_if_possible()
-        self.full_history = pd.read_csv(self.history_path, names = ["epoch", "loss", "val_loss"])
+        self.full_history = pd.read_csv(self.history_path, names=[
+                                        "epoch", "loss", "val_loss"])
         return (self.model, self.full_history)
