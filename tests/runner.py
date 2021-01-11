@@ -116,10 +116,10 @@ class Runner():
         history_losses = pd.read_csv(self.history_path, names = ["epoch", "loss", "val_loss"])
         number_epochs_done = history_losses.shape[0]
         if number_epochs_done != 0:
-            # refit for one epoch to setup the model
+            # relink all layers
             one_input_size = [1] + list(self.x_train.shape[1:])
             self.model(np.zeros(one_input_size))
-            print(self.checkpoint_path)
+
             self.model.load_weights(self.checkpoint_path)
             self.nb_epochs -= number_epochs_done
 
@@ -143,3 +143,11 @@ class Runner():
             print("Delete the file under {history} if you want to retrain.".format(history = self.history_path))
         self.model.fit(self.x_train, self.x_train, epochs=self.nb_epochs,
                        validation_split=0.02, batch_size=100, callbacks=[es_callback, cp_callback, csv_logger])
+
+    # To be used after training
+    def reload_existing_model(self):
+        self.fetch_dataset()
+        self.prepare_model()
+        self.reload_if_possible()
+        self.full_history = pd.read_csv(self.history_path, names = ["epoch", "loss", "val_loss"])
+        return (self.model, self.full_history)
