@@ -8,7 +8,6 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import datetime
 import models.vanilla_vae as vae
-import utils.evaluation as evaluation
 from utils.pseudo_inputs import PInputsData, PInputsGenerated, PseudoInputs
 import tensorflow_datasets as tfds
 
@@ -61,23 +60,12 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 
-metrics_callback = evaluation.MetricsCallback(x_train)
 log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 tensorboard_callback = tf.keras.callbacks.TensorBoard(
     log_dir=log_dir, histogram_freq=1)
 with tf.device('/device:GPU:0'):
     model.fit(x_train, x_train, epochs=2,
-              batch_size=100, callbacks=[es_callback, cp_callback, metrics_callback, tensorboard_callback])
-
-# %%
-re = np.array(metrics_callback.re)
-loss = model.history.history["loss"]
-kl = loss - re
-plt.plot(re, label="re")
-plt.plot(loss, label="loss")
-plt.plot(kl, label="kl")
-plt.legend()
-plt.show()
+              batch_size=100, callbacks=[es_callback, cp_callback, tensorboard_callback])
 
 # %%
 prior = model.get_prior()
