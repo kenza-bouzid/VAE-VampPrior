@@ -131,7 +131,7 @@ class VAE(tfk.Model, ABC):
     def prepare(self, learning_rate = 0.001):
         """Convenience function to compile the model
         """
-        self.compile(optimizer=tf.keras.optimizers.Adam(learning_rate = learning_rate),
+        self.compile(optimizer=tf.keras.optimizers.Adam(learning_rate = learning_rate, clipnorm=1.0),
                      loss=self.neg_log_likelihood)
 
     @abstractmethod
