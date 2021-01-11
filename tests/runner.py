@@ -1,7 +1,6 @@
 import sys
 sys.path.append('../')
 from enum import Enum
-from utils.evaluation import HistorySaveCallback
 import models.hvae as hvae
 import tensorflow as tf
 import models.vae as vae
@@ -114,7 +113,7 @@ class Runner():
     def reload_if_possible(self):
         if not os.path.isfile(self.history_path):
             return # no history stored for this model
-        history_losses = pd.read_csv(self.history_path, names = ["loss", "val_loss"])
+        history_losses = pd.read_csv(self.history_path, names = ["epoch", "loss", "val_loss"])
         number_epochs_done = history_losses.shape[0]
         if number_epochs_done != 0:
             # refit for one epoch to setup the model
@@ -137,9 +136,10 @@ class Runner():
                                                          save_weights_only=False,
                                                          monitor='val_loss',
                                                          verbose=1)
-        hist_callback = HistorySaveCallback(self.history_path)
+        csv_logger = tf.keras.callbacks.CSVLogger(self.history_path, append=True)
+
         if self.nb_epochs <= 0:
             print("This model has already been trained and stored for the required number of epochs.")
             print("Delete the file under {history} if you want to retrain.".format(history = self.history_path))
         self.model.fit(self.x_train, self.x_train, epochs=self.nb_epochs,
-                       validation_split=0.02, batch_size=100, callbacks=[es_callback, cp_callback, hist_callback])
+                       validation_split=0.02, batch_size=100, callbacks=[es_callback, cp_callback, csv_logger])
