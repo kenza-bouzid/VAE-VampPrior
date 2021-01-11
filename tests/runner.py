@@ -139,7 +139,7 @@ class Runner():
                                                        verbose=1,
                                                        restore_best_weights=True)
         cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpoint_path,
-                                                         save_weights_only=False,
+                                                         save_weights_only=True,
                                                          monitor='val_loss',
                                                          verbose=1)
         csv_logger = tf.keras.callbacks.CSVLogger(
