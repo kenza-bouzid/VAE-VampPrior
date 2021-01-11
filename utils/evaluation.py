@@ -1,16 +1,30 @@
 import tensorflow as tf
+import pandas as pd
+import os
 
 
-class MetricsCallback(tf.keras.callbacks.Callback):
-    def __init__(self, data):
+class HistorySaveCallback(tf.keras.callbacks.Callback):
+    def __init__(self, destination):
         super().__init__()
-        self.data = data
+        self.destination = destination
 
-    def on_train_begin(self, logs):
-        self.re = []
+    def on_epoch_begin(self, epoch, logs):
+        print(epoch)
+        self.save()
 
-    def on_epoch_end(self, epoch, logs):
-        reconstruction_error = self.model.neg_log_likelihood(
-            self.data, self.model.decoder(self.model.encoder((self.data))))
-        # self.model.get_kl())
-        self.re.append(tf.math.reduce_mean(reconstruction_error))
+    def on_train_end(self, logs):
+        self.save()
+
+    def save(self):
+        last_values = {}
+        for key in self.model.history.history.keys():
+            last_values[key] = [self.model.history.history[key][-1]]
+
+        if len(last_values.keys()) == 0: # first epoch, no results yet 
+            return
+
+        print("Saving history to", self.destination)
+
+        df_history = pd.DataFrame.from_dict(last_values)
+
+        df_history.to_csv(self.destination, mode='a', header = False, index = False)

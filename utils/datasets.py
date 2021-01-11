@@ -14,7 +14,7 @@ class DatasetKey(Enum):
 def get_dataset(dataset_key):
     if dataset_key == DatasetKey.MNIST:
         (x_train, _), (x_test, _) = mnist.load_data()
-        x_train = x_train.astype(np.float32) / 255
+        x_train = (x_train.astype(np.float32) / 255)[:1000]
         x_test = x_test.astype(np.float32) / 255
 
     elif dataset_key == DatasetKey.OMNIGLOT:
