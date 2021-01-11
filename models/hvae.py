@@ -81,7 +81,8 @@ class Encoder(tfkl.Layer):
             name="pre_latent_layer_z1",
         )
         # Activity Regularizer adds the KL Divergence loss to the encoder
-        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1) #? , activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior1, use_exact_kl=True)
+        # ? , activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior1, use_exact_kl=True)
+        self.latent_layer_z1 = tfpl.IndependentNormal(self.latent_dim1)
 
     def forward_qz2_layers(self, x):
         z2 = self.qz2_first(x)
@@ -203,7 +204,7 @@ class Decoder(tfkl.Layer):
     def call(self, z1, z2):
         z1 = self.input_layer_z1(z1)
         z2 = self.input_layer_z2(z2)
-        z1_p = self.forward_pz1(z2) #! TODO pb de comprehension
+        z1_p = self.forward_pz1(z2)  # ! TODO pb de comprehension
         x = self.forward_px(z1, z2)
         return x, z1_p
 
@@ -238,14 +239,6 @@ class HVAE(VAE):
                                activation=self.activation,
                                input_type=self.input_type)
 
-    def update_prior1(self, mean_z1, stddev_z1):
-        # mean_z1 = tf.reduce_sum(mean_z1, axis = 0)
-        # stddev_z1 = tf.reduce_sum(stddev_z1, axis = 0)
-        self.prior1 = tfd.Independent(tfd.Normal(
-            loc=mean_z1,
-            scale=stddev_z1,
-        ), reinterpreted_batch_ndims=1)
-
     def call(self, inputs):
         z1, z2 = self.encoder(inputs)
 
@@ -259,9 +252,9 @@ class HVAE(VAE):
         kl_loss = self.compute_kl_loss(z2)
         self.add_loss(kl_loss)
         kl_loss_prior1 = tfd.kl_divergence(
-                z1,
-                self.prior1,
-            )
+            z1,
+            self.prior1,
+        )
         self.add_loss(tf.reduce_mean(kl_loss_prior1))
 
         return reconstructed
@@ -277,8 +270,6 @@ class HVAE(VAE):
         z1, z2 = self.encoder(x_test)
         _, z1_p = self.decoder(z1, z2)
         self.prior1 = z1_p
-        #self.update_prior1(mean_z1, stddev_z1)
-
 
     def marginal_log_likelihood_over_all_samples(self, x_test, n_samples=5000):
         # update priors to avoid tensorflow probability exceptions
@@ -292,13 +283,13 @@ class HVAE(VAE):
             )
         return ll
 
-    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_priors = True):
+    def marginal_log_likelihood_one_sample(self, one_x, n_samples=5000, refresh_priors=True):
         if refresh_priors:
             self.refresh_priors(one_x)
 
         # For one sample the KL is identical
         z1, z2 = self.encoder(one_x)
-        kl = self.compute_kl_loss(z2, n_samples = n_samples) + \
+        kl = self.compute_kl_loss(z2, n_samples=n_samples) + \
             tfd.kl_divergence(z1, self.prior1)
 
         # n_samples different reconstruction errors
