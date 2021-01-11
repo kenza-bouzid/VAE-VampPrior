@@ -28,7 +28,8 @@ class PriorConfiguration(Enum):
 
 dataset_key_dict = {
     DatasetKey.MNIST: "MNIST",
-    DatasetKey.OMNIGLOT: "OMNIGLOT"
+    DatasetKey.OMNIGLOT: "OMNIGLOT",
+    DatasetKey.CALTECH: "CALTECH"
 }
 architecture_key_dict = {
     Architecture.VANILLA: "VANILLA",
@@ -96,7 +97,7 @@ class Runner():
         )
 
     def fetch_dataset(self):
-        (self.x_train, self.x_test) = get_dataset(DatasetKey.MNIST)
+        (self.x_train, self.x_test) = get_dataset(self.dataset_key)
 
     def prepare_model(self):
         if self.dataset_key == DatasetKey.OMNIGLOT:
