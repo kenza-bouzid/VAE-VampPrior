@@ -41,9 +41,9 @@ prior_key_dict = {
 }
 
 
-def get_checkpoint_path(dataset_key, architecture, prior_configuration, n_epochs=2000):
+def get_checkpoint_path(dataset_key, architecture, prior_configuration, n_epochs=2000, root=".."):
     name = "{root_dir}/{dataset}_{model}_{prior}_{n_epochs}.cpkt".format(
-        root_dir="../checkpoints",
+        root_dir="{root}/checkpoints".format(root=root),
         dataset=dataset_key_dict[dataset_key],
         model=architecture_key_dict[architecture],
         prior=prior_key_dict[prior_configuration],
@@ -52,7 +52,7 @@ def get_checkpoint_path(dataset_key, architecture, prior_configuration, n_epochs
     return name
 
 
-def get_history_path(dataset_key, architecture, prior_configuration, n_epochs=2000):
+def get_history_path(dataset_key, architecture, prior_configuration, n_epochs=2000, root=".."):
     name = "{root_dir}/{dataset}_{model}_{prior}_{n_epochs}.csv".format(
         root_dir="../history",
         dataset=dataset_key_dict[dataset_key],
@@ -73,7 +73,8 @@ class Runner():
         dataset_key: DatasetKey,
         architecture: Architecture,
         prior_configuration: PriorConfiguration,
-        n_epochs=2000
+        n_epochs=2000,
+        root = ".."
     ):
         self.dataset_key = dataset_key
         self.architecture = architecture
@@ -83,13 +84,15 @@ class Runner():
             dataset_key=dataset_key,
             architecture=architecture,
             prior_configuration=prior_configuration,
-            n_epochs=n_epochs
+            n_epochs=n_epochs,
+            root = root
         )
         self.history_path = get_history_path(
             dataset_key=self.dataset_key,
             architecture=self.architecture,
             prior_configuration=self.prior_configuration,
-            n_epochs=n_epochs
+            n_epochs=n_epochs,
+            root = root
         )
 
     def fetch_dataset(self):
