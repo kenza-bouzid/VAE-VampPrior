@@ -107,7 +107,7 @@ class Runner():
             self.prior_type = vae.Prior.VAMPPRIOR
             if self.prior_configuration == PriorConfiguration.VAMPDATA:
                 self.pseudo_inputs = PInputsData(
-                    pseudo_inputs=self.x_train[:self.nb_pseudo_inputs])
+                    pseudo_inputs=self.x_train[:self.n_pseudo_inputs])
             else:
                 self.pseudo_inputs = PInputsGenerated(
                     original_dim=self.x_train.shape[1:], n_pseudo_inputs=self.n_pseudo_inputs)
