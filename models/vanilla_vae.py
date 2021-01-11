@@ -188,6 +188,8 @@ class VanillaVAE(VAE):
     def call(self, inputs):
         z = self.encoder(inputs)
 
+        self.refresh_priors()
+
         kl_loss_weighted = self.compute_kl_loss(z)
 
         self.add_loss(kl_loss_weighted)
