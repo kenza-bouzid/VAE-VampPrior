@@ -54,7 +54,7 @@ def get_checkpoint_path(dataset_key, architecture, prior_configuration, n_epochs
 
 def get_history_path(dataset_key, architecture, prior_configuration, n_epochs=2000, root=".."):
     name = "{root_dir}/{dataset}_{model}_{prior}_{n_epochs}.csv".format(
-        root_dir="../history",
+        root_dir="{root}/history".format(root=root),
         dataset=dataset_key_dict[dataset_key],
         model=architecture_key_dict[architecture],
         prior=prior_key_dict[prior_configuration],
