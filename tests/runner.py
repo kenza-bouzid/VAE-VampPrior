@@ -75,12 +75,14 @@ class Runner():
         architecture: Architecture,
         prior_configuration: PriorConfiguration,
         n_epochs=2000,
-        root = ".."
+        root = "..",
+        learning_rate = 0.001
     ):
         self.dataset_key = dataset_key
         self.architecture = architecture
         self.prior_configuration = prior_configuration
         self.n_epochs = n_epochs
+        self.learning_rate = learning_rate
         self.checkpoint_path = get_checkpoint_path(
             dataset_key=dataset_key,
             architecture=architecture,
@@ -102,7 +104,6 @@ class Runner():
     def prepare_model(self):
         if self.dataset_key == DatasetKey.OMNIGLOT:
             self.n_pseudo_inputs = 1000
-            self.learning_rate = 0.0005
         if self.prior_configuration != PriorConfiguration.SG:
             self.prior_type = vae.Prior.VAMPPRIOR
             if self.prior_configuration == PriorConfiguration.VAMPDATA:
