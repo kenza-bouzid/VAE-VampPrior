@@ -138,8 +138,8 @@ class Runner():
         self.fetch_dataset()
         self.prepare_model()
         self.reload_if_possible()
-        es_callback = tf.keras.callbacks.EarlyStopping(monitor='loss',
-                                                       min_delta=0.0001,
+        es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                       min_delta=0.001,
                                                        patience=50,
                                                        verbose=1,
                                                        restore_best_weights=True)
@@ -156,7 +156,7 @@ class Runner():
             print("Delete the file under {history} if you want to retrain.".format(
                 history=self.history_path))
         self.model.fit(self.x_train, self.x_train, epochs=self.n_epochs,
-                       validation_split=0.02, batch_size=100, callbacks=[es_callback, cp_callback, csv_logger])
+                       validation_data=self.x_test, batch_size=100, callbacks=[es_callback, cp_callback, csv_logger])
 
     # To be used after training
     def reload_existing_model(self):
