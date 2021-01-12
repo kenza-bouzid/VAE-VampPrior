@@ -156,7 +156,7 @@ class Runner():
             print("Delete the file under {history} if you want to retrain.".format(
                 history=self.history_path))
         self.model.fit(self.x_train, self.x_train, epochs=self.n_epochs,
-                       validation_data=self.x_test, batch_size=100, callbacks=[es_callback, cp_callback, csv_logger])
+                       validation_data=(self.x_test, self.x_test), batch_size=100, callbacks=[es_callback, cp_callback, csv_logger])
 
     # To be used after training
     def reload_existing_model(self):
