@@ -138,11 +138,11 @@ class Runner():
         self.fetch_dataset()
         self.prepare_model()
         self.reload_if_possible()
-        es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                       min_delta=0.001,
-                                                       patience=50,
-                                                       verbose=1,
-                                                       restore_best_weights=True)
+        # es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+        #                                                min_delta=0.001,
+        #                                                patience=50,
+        #                                                verbose=1,
+        #                                                restore_best_weights=True)
         cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpoint_path,
                                                          save_weights_only=True,
                                                          monitor='val_loss',
