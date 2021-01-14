@@ -1,2 +1,2 @@
-model_checkpoint_path: "CALTECH_VANILLA_SG_2.cpkt"
-all_model_checkpoint_paths: "CALTECH_VANILLA_SG_2.cpkt"
+model_checkpoint_path: "CALTECH_HVAE_VAMPGEN_2.cpkt"
+all_model_checkpoint_paths: "CALTECH_HVAE_VAMPGEN_2.cpkt"

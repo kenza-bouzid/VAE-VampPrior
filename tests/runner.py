@@ -1,16 +1,16 @@
+from enum import Enum
+import models.hvae as hvae
+import tensorflow as tf
+import models.vae as vae
+import models.vanilla_vae as vanilla_vae
+from utils.datasets import DatasetKey, get_dataset
+from utils.pseudo_inputs import PInputsData, PInputsGenerated
+import pandas as pd
+import numpy as np
+import os
 import sys
 sys.path.append('../')
 
-import os
-import numpy as np
-import pandas as pd
-from utils.pseudo_inputs import PInputsData, PInputsGenerated
-from utils.datasets import DatasetKey, get_dataset
-import models.vanilla_vae as vanilla_vae
-import models.vae as vae
-import tensorflow as tf
-import models.hvae as hvae
-from enum import Enum
 
 Dataset = DatasetKey
 
@@ -75,27 +75,29 @@ class Runner():
         architecture: Architecture,
         prior_configuration: PriorConfiguration,
         n_epochs=2000,
-        root = "..",
-        learning_rate = 0.001
+        root="..",
+        learning_rate=0.001,
+        kl_weight=3.0
     ):
         self.dataset_key = dataset_key
         self.architecture = architecture
         self.prior_configuration = prior_configuration
         self.n_epochs = n_epochs
         self.learning_rate = learning_rate
+        self.kl_weight = kl_weight
         self.checkpoint_path = get_checkpoint_path(
             dataset_key=dataset_key,
             architecture=architecture,
             prior_configuration=prior_configuration,
             n_epochs=n_epochs,
-            root = root
+            root=root
         )
         self.history_path = get_history_path(
             dataset_key=self.dataset_key,
             architecture=self.architecture,
             prior_configuration=self.prior_configuration,
             n_epochs=n_epochs,
-            root = root
+            root=root
         )
 
     def fetch_dataset(self):
@@ -117,7 +119,7 @@ class Runner():
 
         self.model_class = vanilla_vae.VanillaVAE if self.architecture == Architecture.VANILLA else hvae.HVAE
         self.model = self.model_class(
-            original_dim=self.x_train.shape[1:], prior_type=self.prior_type, pseudo_inputs=self.pseudo_inputs)
+            original_dim=self.x_train.shape[1:], prior_type=self.prior_type, pseudo_inputs=self.pseudo_inputs, kl_weight=self.kl_weight)
         self.model.prepare(learning_rate=self.learning_rate)
 
     def reload_if_possible(self):
