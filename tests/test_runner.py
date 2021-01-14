@@ -1,6 +1,6 @@
 # %%
 import runner as runner
-runner_instance = runner.Runner(dataset_key=runner.Dataset.CALTECH, architecture=runner.Architecture.VANILLA, prior_configuration=runner.PriorConfiguration.SG, n_epochs=2,root="../exports")
+runner_instance = runner.Runner(dataset_key=runner.Dataset.CALTECH, architecture=runner.Architecture.HVAE, prior_configuration=runner.PriorConfiguration.VAMPGEN, n_epochs=2,root="../exports")
 runner_instance.run()
 # %%
 import runner as runner
