@@ -25,7 +25,7 @@ You can specify the `dataset_key` argument to either `runner.Dataset.CALTECH` or
 
 ## Set an Experiment 
 
-We provide a framework test for running the different experiments, refer to `experiments/test_runner.py` for a quick tutorial.
+We provide a test framework for running the different experiments, refer to `experiments/test_runner.py` for a quick tutorial.
 
 ## References
 
