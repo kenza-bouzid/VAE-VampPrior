@@ -2,7 +2,7 @@
 This is an implementation of the following paper in Tensorflow 2.0:  
 * Jakub M. Tomczak, Max Welling, VAE with a VampPrior, [arXiv preprint](https://arxiv.org/abs/1705.07120), 2017
 
-We hereby compare the performance of a new prior ("Variational Mixture of Posteriors" prior, or VampPrior for short) for the variational auto-encoder framework with one layer and two layers of stochastic hidden units.
+We hereby compare the performance of a new prior ("Variational Mixture of Posteriors" prior, or VampPrior for short) for the Variational Auto-Encoder framework with one layer and two layers of stochastic hidden units.
 
 ## Models
 We provide a vanilla version of a VAE and a Hierarchical one with two level priors. Each architecture can be used with and without the VampPrior.  The VampPrior let you train the pseudo-inputs or randomly choose them from the data.
